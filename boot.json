@@ -1,0 +1,31 @@
+{
+  "name": "MapleBirchCE-CoT",
+  "nickName": {
+    "en": "Maplebirch CE - CoT Global Cheat Panel",
+    "cn": "Maplebirch CE · CoT 全局调试面板"
+  },
+  "version": "0.1.0",
+  "styleFileList": [],
+  "scriptFileList_inject_early": [
+    "javascript/maplebirchce-cot.js"
+  ],
+  "scriptFileList": [],
+  "tweeFileList": [
+    "twee/maplebirchce-cot-widget.twee"
+  ],
+  "imgFileList": [],
+  "additionFile": [
+    "README.md"
+  ],
+  "addonPlugin": [],
+  "dependenceInfo": [
+    {
+      "modName": "ModLoader",
+      "version": ">=2.101.1"
+    },
+    {
+      "modName": "GameVersion",
+      "version": "=0.8.2-i"
+    }
+  ]
+}
