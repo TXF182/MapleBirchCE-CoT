@@ -1,0 +1,20 @@
+MapleBirchCE-CoT 0.6.10 安装包核验记录
+========================================
+时间：2026-11-04（R12 后，用户指令「出 0.6.10 安装包 / 进入发布准备」）
+
+产物：MapleBirchCE-CoT-0.6.10.mod.zip（仓库根）
+ZIP SHA256：BC81670CDFC333811BFB73778889E041BD50E5E1E773BA0FF0D0B59F94A63C7D
+大小：22722 字节
+
+内部结构核验（Expand-Archive 回读）：
+- boot.json（version=0.6.10，与源码 MCE_VERSION 双源一致）
+- README.md
+- javascript/maplebirchce-cot.js（SHA256=100C7A518CEB1DBCA94A89176803B21F61DEC669EBE9E53A3166C2368989686F，与仓库构建产物一致）
+- twee/maplebirchce-cot-widget.twee
+共 4 文件，结构符合 loader 约定（boot.json 根 + javascript/ + twee/ + README.md）。
+
+发布准备状态（D4 约束）：
+- 安装包就绪：是（本记录）
+- 实机冒烟（D6）：非默认门禁，按需执行——游戏内 Mod 管理器加载 zip → 刷新 → 右下金色悬浮球
+- 实际发布（GitHub Release 等）：未执行，需用户明确指令（D4 先不发）
+- 0.6.10 单测 61/61 + verifier 4/4，见 .selfcheck/r12-findr-viewer-incl-reset.txt

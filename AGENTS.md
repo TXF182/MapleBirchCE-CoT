@@ -40,6 +40,7 @@
 - 0.6.8 增强（R10）：角色页 PC 基本信息改为可编辑（pcname/pcnickname/pcgender/pcage/pcmajor/pcspecies 顶层直写，pcage 1-120，`M.data.writePcField`）；关系页 NPC 搜索过滤（data-name）；关于页自检详情（模块 stage/适配器目录+wrote 计数/UI 偏好键）。单测 55 项。
 - 0.6.9 增强（R11）：`$pcskills` 一键满值（13 键写 100）/重置本组（渲染时快照）→ `M.data.applyGroupValue/resetGroup`；关系页每 NPC 全字段只读 JSON 查看器（循环引用/函数时提示）；面板宽度 W-/W+ 300/340/380px 持久化 `mbCE_cot_ui_width`（`M.shell.setWidth/panelWidth`）。UI 偏好键全集 7 个：`mbCE_cot_ui`(开合)/`_ui_tab`(页签)/`_ui_font`(字号)/`_ui_pos`(位置)/`_ui_width`(宽度)/`mbCE_cot_ui_stats`(数值折叠)/`mbCE_cot_ui_rel`(NPC 折叠)。单测 58 项。
 - 0.6.10 增强（R12，scan16.out.txt）：`$pcinclinations` 为**数组**（游戏 `V.pcinclinations.push/indexOf/splice` 维护，`setup.add_inclination/remove_inclination`；有效值来自 `setup.inclinations` 对象键，如 Insecure/Shy/basic_exhibitionist，词表大不硬编码）→ 角色页逗号分隔数组编辑（中英文逗号，留空清空）`M.data.writePcInclinations`；场景页 Findr 全字段只读 JSON 查看器；数值页一键重置全页（TOP+全部组渲染时快照写回）`M.data.resetAll`。单测 61 项。
+- 0.6.10 安装包：`MapleBirchCE-CoT-0.6.10.mod.zip`（ZIP SHA256 `BC81670CDFC333811BFB73778889E041BD50E5E1E773BA0FF0D0B59F94A63C7D`，内部 js SHA=100C7A51...9686F；核验见 `.selfcheck/zip-build-0610.txt`）。发布待命：D4 先不发，实际发布需用户明确指令；实机冒烟 D6 非默认门禁。
 - loader 另有 RemoteLoader 通道（远程 modList.json）；本机 HTTP 缺该文件会产生 SyntaxError 噪音，不影响 LocalStorage/IndexedDB 本地通道。
 - 消费端：`C:\Users\27352\Doubao\chats\2026-11-04\new-chat\cot-game\`；moli：`C:\Users\27352\AppData\Local\moli\moli-v1.1.19-x86_64-pc-windows-msvc\moli.exe`。
 
