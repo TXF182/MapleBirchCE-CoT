@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [0.6.10] - 2026-11-04
+
+- R12 三项增强：
+  - **场景页 Findr 全字段查看**：Findr 编辑区新增"查看全部字段（只读 JSON）"折叠，展示 `$findr` 完整对象。
+  - **$pcinclinations 编辑**：角色页新增倾向编辑行——逗号分隔文本 ↔ 数组（支持中英文逗号，去空项，留空=清空），整体写回留痕；提示值来自 setup.inclinations 键（如 Insecure/Shy/basic_exhibitionist，词表大不硬编码）；`M.data.writePcInclinations`。
+  - **数值页一键重置全页**：顶部新增"重置全页"按钮，写回本页渲染时快照（TOP + 全部组键）；`M.data.resetAll`。
+- 取证（scan16）：`$pcinclinations` 为数组（游戏 `push/indexOf/splice` 维护，`setup.add_inclination/remove_inclination`）；有效值来自 `setup.inclinations` 对象键。
+- 单测扩至 61 项。
+
 ## [0.6.9] - 2026-11-04
 
 - R11 三项增强：

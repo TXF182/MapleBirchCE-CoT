@@ -76,7 +76,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.6.9");
+  assert.strictEqual(M.version, "0.6.10");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -140,7 +140,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.6.9");
+  assert.strictEqual(c.version, "0.6.10");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -152,7 +152,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.6.9");
+  assert.strictEqual(st.version, "0.6.10");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -767,7 +767,7 @@ test("R10: 角色页可编辑行 + 关系页 NPC 搜索框", () => {
       walk(c);
     });
   })(box);
-  assert.strictEqual(pcRows, 6, "PC 六字段可编辑行");
+  assert.strictEqual(pcRows, 7, "PC 六字段 + 倾向共 7 行可编辑");
   const box2 = env.sandbox.document.createElement("div");
   env.sandbox.mbCE_cot.data.render("rel", box2);
   let hasFilter = false;
@@ -856,6 +856,48 @@ test("R11: 面板宽度偏好（持久化 + 恢复）", () => {
   env2.sandbox.localStorage.setItem("mbCE_cot_ui_width", "0");
   loadAll(env2);
   assert.strictEqual(env2.sandbox.mbCE_cot.shell.panelWidth(), "300px", "恢复宽度");
+});
+
+test("R12: $pcinclinations 编辑（数组 + 中英文逗号 + 清空）", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  let r = D.writePcInclinations("Insecure, Shy，basic_exhibitionist");
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual([...env.variables.pcinclinations], ["Insecure", "Shy", "basic_exhibitionist"], "中英文逗号解析");
+  r = D.writePcInclinations("  ");
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual([...env.variables.pcinclinations], [], "留空清空");
+});
+
+test("R12: 数值页重置全页（快照写回）", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  env.sandbox.State.variables.pcmoney = 500;
+  env.sandbox.State.variables.pcskills = { Charisma: 10 };
+  const snap = { top: { pcmoney: 500 }, groups: { skills: { Charisma: 10 } } };
+  // 先改乱
+  env.variables.pcmoney = 999;
+  env.variables.pcskills.Charisma = 77;
+  const r = D.resetAll(snap);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.pcmoney, 500, "TOP 写回");
+  assert.strictEqual(env.variables.pcskills.Charisma, 10, "组键写回");
+});
+
+test("R12: Findr 全字段查看器渲染", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.findr = { name: "u", tags: ["Open"], liked: [], disliked: [], matched: [] };
+  const box = env.sandbox.document.createElement("div");
+  const ok = env.sandbox.mbCE_cot.data.render("scene", box);
+  assert.strictEqual(ok, true);
+  let hasFull = false;
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.children && c.children.length > 0 && c.children[0].textContent === "查看全部字段（只读 JSON）") { hasFull = true; }
+      walk(c);
+    });
+  })(box);
+  assert.strictEqual(hasFull, true, "存在 Findr 全字段查看折叠");
 });
 
 let failed = 0;

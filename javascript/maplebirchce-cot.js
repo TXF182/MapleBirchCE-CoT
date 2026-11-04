@@ -6,7 +6,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.9"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.6.10"; // 双源：boot.json version 必须一致
 
 window.mbCE_cot = {
   version: MCE_VERSION,
@@ -667,6 +667,30 @@ window.mbCE_cot = {
     });
     sRow.appendChild(sInp);
     box.appendChild(sRow);
+    // 一键重置全页（R12）：本页渲染时快照（TOP + 全部组）
+    var snap = { top: {}, groups: {} };
+    Object.keys(TOP).forEach(function (k) {
+      var meta = TOP[k];
+      snap.top[meta.path] = a.readVar(meta.path);
+    });
+    GROUPS.forEach(function (g) {
+      snap.groups[g.id] = Object.assign({}, readGroup(g.path));
+    });
+    var rRow = el("div", "mbce-row");
+    rRow.appendChild(el("span", "mbce-row-label", "重置全页（本页快照）"));
+    var rBtn = el("button", "mbce-btn", "重置全页");
+    rBtn.addEventListener("click", function () {
+      var r = resetAll(snap);
+      if (r && r.ok) {
+        var st = M.shell && M.shell.statusEl;
+        if (st) { st.textContent = "已重置本页 " + r.count + " 键（$mbCE_wrote 可查）"; }
+      } else {
+        var st2 = M.shell && M.shell.statusEl;
+        if (st2) { st2.textContent = "重置失败：" + ((r && r.reason) || "未知") + "（$mbCE_wrote 可查）"; }
+      }
+    });
+    rRow.appendChild(rBtn);
+    box.appendChild(rRow);
     // 分组折叠：每组一个 <details open>，标题可点击收起/展开；折叠状态记忆（R8）
     var statsLsKey = "mbCE_cot_ui_stats";
     function readClosedGroups() {
@@ -753,6 +777,46 @@ window.mbCE_cot = {
     return a.writeVar(field, v);
   }
 
+  // $pcinclinations 编辑（R12）：数组（游戏用 push/indexOf/splice 维护）；
+  // 文本逗号分隔 ↔ 数组（中英文逗号），留空 = 清空
+  function parseArr(raw) {
+    return String(raw).split(/[,，]/).map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+  }
+  function writePcInclinations(raw) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    if (raw === undefined || raw === null) { return { ok: false, reason: "empty" }; }
+    var v = String(raw).trim();
+    var arr = v ? parseArr(v) : [];
+    var r = a.writeVar("pcinclinations", arr);
+    if (r.ok) { r.to = arr; }
+    return r;
+  }
+
+  // 数值页一键重置全页（R12）：写回本页渲染时快照（TOP + 全部组）
+  function resetAll(snap) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    var count = 0;
+    if (snap && snap.top) {
+      Object.keys(snap.top).forEach(function (path) {
+        var r = a.writeVar(path, snap.top[path]);
+        if (r.ok) { count++; }
+      });
+    }
+    if (snap && snap.groups) {
+      Object.keys(snap.groups).forEach(function (gid) {
+        var g = GROUPS.filter(function (g2) { return g2.id === gid; })[0];
+        if (!g) { return; }
+        Object.keys(snap.groups[gid]).forEach(function (k) {
+          var r = a.writeVar(g.path + "." + k, snap.groups[gid][k]);
+          if (r.ok) { count++; }
+        });
+      });
+    }
+    return { ok: count > 0, count: count };
+  }
+
   function renderChar(box) {
     var a = adapter();
     if (!a) { box.appendChild(el("p", "mbce-plain", "适配层未就绪")); return true; }
@@ -782,6 +846,27 @@ window.mbCE_cot = {
       pc.appendChild(row);
     });
     pc.appendChild(el("p", "mbce-plain", "注：性别/种族等字段的部分游戏联动（如身体部件）由剧情设定，改字段可能不完全联动。"));
+    // 倾向（$pcinclinations，R12）：数组，逗号分隔文本编辑
+    var incRow = el("div", "mbce-row");
+    incRow.appendChild(el("span", "mbce-row-label", "倾向（$pcinclinations，逗号分隔）"));
+    var incInp = el("input", "mbce-in");
+    incInp.type = "text";
+    var incCur = a.readVar("pcinclinations");
+    incInp.value = Array.isArray(incCur) ? incCur.join(", ") : ((incCur === undefined || incCur === null) ? "" : String(incCur));
+    incRow.appendChild(incInp);
+    var incBtn = el("button", "mbce-btn", "保存");
+    incBtn.addEventListener("click", function () {
+      var r = writePcInclinations(incInp.value);
+      if (r && r.ok) { incInp.value = Array.isArray(r.to) ? r.to.join(", ") : String(r.to); }
+      else {
+        var msg = (r && r.reason) ? (M.i18n && M.i18n.reason ? M.i18n.reason(r.reason) : r.reason) : "失败";
+        var st = M.shell && M.shell.statusEl;
+        if (st) { st.textContent = "保存未生效：" + msg + "（写档留痕 $mbCE_wrote 可查）"; }
+      }
+    });
+    incRow.appendChild(incBtn);
+    pc.appendChild(incRow);
+    pc.appendChild(el("p", "mbce-plain", "值来自 setup.inclinations 键（如 Insecure/Shy/basic_exhibitionist），可自定义；留空 = 清空。"));
     box.appendChild(pc);
     var people = el("div", "mbce-group");
     people.appendChild(el("b", null, "认识的人（$people 自发现）"));
@@ -825,6 +910,8 @@ window.mbCE_cot = {
     readGroup: readGroup,
     applyGroupValue: applyGroupValue,
     resetGroup: resetGroup,
+    writePcInclinations: writePcInclinations,
+    resetAll: resetAll,
     discoverPeople: discoverPeople,
     writePcField: writePcField,
     pcFields: PC_FIELDS,
@@ -1521,6 +1608,14 @@ window.mbCE_cot = {
       });
       findr.appendChild(chipWrap);
       findr.appendChild(el("p", "mbce-plain", "点击标签即时保存（再点取消）。liked/disliked/matched 为 NPC 名数组，逗号分隔，如 Alice, Bob"));
+      // 全字段查看器（R12）：只读 JSON 展示 $findr 全部键
+      var full = el("details");
+      full.appendChild(el("summary", null, "查看全部字段（只读 JSON）"));
+      var fBody = el("div", "mbce-group");
+      full.appendChild(fBody);
+      try { fBody.appendChild(el("p", "mbce-plain", JSON.stringify(f, null, 2))); }
+      catch (e) { fBody.appendChild(el("p", "mbce-plain", "（对象含循环引用/函数，无法 JSON 展示）")); }
+      findr.appendChild(full);
     }
     var note = el("p", "mbce-plain", "说明：setup.Findr 为方法容器（username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match），NPC 是否在线上由游戏实时计算，无需也不可直改。");
     findr.appendChild(note);

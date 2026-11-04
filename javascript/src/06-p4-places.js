@@ -235,6 +235,14 @@
       });
       findr.appendChild(chipWrap);
       findr.appendChild(el("p", "mbce-plain", "点击标签即时保存（再点取消）。liked/disliked/matched 为 NPC 名数组，逗号分隔，如 Alice, Bob"));
+      // 全字段查看器（R12）：只读 JSON 展示 $findr 全部键
+      var full = el("details");
+      full.appendChild(el("summary", null, "查看全部字段（只读 JSON）"));
+      var fBody = el("div", "mbce-group");
+      full.appendChild(fBody);
+      try { fBody.appendChild(el("p", "mbce-plain", JSON.stringify(f, null, 2))); }
+      catch (e) { fBody.appendChild(el("p", "mbce-plain", "（对象含循环引用/函数，无法 JSON 展示）")); }
+      findr.appendChild(full);
     }
     var note = el("p", "mbce-plain", "说明：setup.Findr 为方法容器（username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match），NPC 是否在线上由游戏实时计算，无需也不可直改。");
     findr.appendChild(note);
