@@ -4,6 +4,7 @@
 
 - R1 汉化优化：`M.i18n.reason` 错误码汉化表（no-adapter/empty/nan/no-person/parent-missing/range:* → 中文提示），04/05/06 状态栏统一走汉化；07 生态层引用 01-core 的 i18n 基础。单测扩至 35 项。
 - R2 边界与一致性：地点页自定义跳转成功后清空输入框；README 开发闭环描述更新（动态语法扫描）；pack/tests 两处 ORDER 加同步纪律注释。
+- R3 汉化补漏与全量回归：关系页 `special` 标记汉化为「特殊」；全量复验 7 源 node --check + 单测 35/35 + verifier 4/4 + SHA256 `D7C9FB82...9A0E`。
 
 ## [0.6.0] - 2026-11-04
 

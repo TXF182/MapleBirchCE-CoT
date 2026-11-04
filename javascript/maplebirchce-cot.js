@@ -673,7 +673,7 @@ window.mbCE_cot = {
       var g = el("div", "mbce-group");
       var head = p.name;
       if (p.relationship !== undefined) { head += " · " + p.relationship; }
-      if (p.special) { head += " · special"; }
+      if (p.special) { head += " · 特殊"; }
       g.appendChild(el("b", null, head));
       var info = a.readVar("people." + p.name);
       if (info) {
