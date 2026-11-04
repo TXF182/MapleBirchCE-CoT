@@ -13,6 +13,7 @@ const vm = require("vm");
 const assert = require("assert");
 
 const SRC = path.join(__dirname, "..", "javascript", "src");
+// ⚠️ 与 tools\pack.ps1 的 $order 必须同步：新增/移除源文件两处一起改。
 const ORDER = ["01-core.js", "02-shell.js", "03-cot-adapter.js", "04-p2-data.js", "05-p3-relations.js", "06-p4-places.js", "07-p5-eco.js"];
 
 function makeEl() {

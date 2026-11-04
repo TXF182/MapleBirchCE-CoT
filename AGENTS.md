@@ -31,6 +31,7 @@
 - P5 生态：`javascript/src/07-p5-eco.js` 运行时生态检测（modI18N/ModUtils/modSC2DataManager/setup.mbStageCE）+ about 页生态块 + `M.i18n` 钩子（原文直通，接 i18n.json 留待后续）；官方内置 16 mod 清单；版本 0.6.0。至此六页全部由 data 渲染接管（char/stats/rel/place/scene/about）。
 - 测试纪律补充：vm 沙箱内创建的对象（数组等）跨 realm 原型不同，`assert.deepStrictEqual` 会误报「same structure but not reference-equal」——跨 realm 值改用语义断言（Array.isArray + length / 标量 ===）；render 路由测试的「未接管页」用不存在的 tab（`nope`）断言 fallback。
 - P6 回归（0.6.0）：7 源 `node --check` + 33 单测 + verifier 4/4 + SHA256 `651312F8...B68EE6F`；`dev.ps1` [1/3] 语法检查改为动态扫描全部 src/*.js（P6 回归修复，此前硬编码 3 文件漏检 04-07）；产物模块标记核验 M.i18n/mbCE_cot.data/mbStageCE/mbCE_wrote 就位（rel/places/eco 由单测直证）。发布待命：D4。
+- 0.6.1 优化：`M.i18n` 基础在 01-core（`t` 原文直通 + `reasons` 汉化表 + `reason(code)`：range:* 前缀动态汉化、未知码保底原样）；07 的 `eco.i18n` 引用 `M.i18n`（不再自建）；04/05/06 状态栏统一 `M.i18n.reason`。单测 35 项。`tools/pack.ps1` 的 `$order` 与 `tests/run-tests.js` 的 `ORDER` 必须同步（两侧均有注释）。
 - loader 另有 RemoteLoader 通道（远程 modList.json）；本机 HTTP 缺该文件会产生 SyntaxError 噪音，不影响 LocalStorage/IndexedDB 本地通道。
 - 消费端：`C:\Users\27352\Doubao\chats\2026-11-04\new-chat\cot-game\`；moli：`C:\Users\27352\AppData\Local\moli\moli-v1.1.19-x86_64-pc-windows-msvc\moli.exe`。
 

@@ -91,8 +91,9 @@
     var btn = el("button", "mbce-btn", "前往");
     btn.addEventListener("click", function () {
       var r = setLocation(inp.value);
-      if (!r.ok) { statusMsg(r.reason); inp.value = ""; }
+      if (!r.ok) { statusMsg(r.reason); }
       else {
+        inp.value = "";
         loc = a.readVar("location");
         var p = cur.getElementsByTagName("p")[0];
         if (p) { p.textContent = "$location = " + String(loc); }

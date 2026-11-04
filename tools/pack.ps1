@@ -9,6 +9,8 @@ $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot   # tools\.. -> 仓库根
 $src = Join-Path $repo "javascript\src"
 $out = Join-Path $repo "javascript\maplebirchce-cot.js"
+# 产物文件顺序（加载顺序：core → shell → adapter → 页面数据层）。
+# ⚠️ 与 tests\run-tests.js 的 ORDER 必须同步：新增/移除源文件两处一起改。
 $order = @("01-core.js", "02-shell.js", "03-cot-adapter.js", "04-p2-data.js", "05-p3-relations.js", "06-p4-places.js", "07-p5-eco.js")
 
 $bootRaw = Get-Content -Raw -LiteralPath (Join-Path $repo "boot.json")

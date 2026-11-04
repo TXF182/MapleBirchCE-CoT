@@ -1,7 +1,7 @@
 # MapleBirchCE-CoT · CoT 全局调试面板（移植项目）
 
 > 将 DoL 版 MapleBirchCE（v1.9.27）移植到 Course of Temptation（CoT 0.8.2i）。
-> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 6 完成（回归与发布就绪，0.6.0）**。发布待命：D4 先不发，需用户明确指令。
+> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 6 完成（回归与发布就绪），当前版本 0.6.1**。发布待命：D4 先不发，需用户明确指令。
 
 ## 阶段进度（移植方案 7 阶段）
 
@@ -47,4 +47,4 @@
 - 版本双源必须同步：`javascript/src/01-core.js` MCE_VERSION 与 `boot.json` version。
 - 不升版本、不发布、不擅自清理用户文件——均需用户明确指令。
 - 实机冒烟（moli）按用户指令停用为默认门禁（太慢）；`tools/cot_smoke.ps1` 留档为按需复核工具。默认验证 = 静态取证 + 单元测试 + 打包 verifier + 消费端人工实机。
-- P1 验证链：`node --check` 语法 → `node tests\run-tests.js` 单测 → `tools\pack.ps1` verifier 4/4 + SHA256（`dev.ps1` 一键）。
+- 开发闭环：`dev.ps1` 一键（[1/3] `node --check` 动态扫描全部 `src/*.js` → [2/3] `node tests\run-tests.js` 单测 → [3/3] `tools\pack.ps1` verifier 4/4 + SHA256）。

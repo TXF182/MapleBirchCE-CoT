@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [0.6.1] - 2026-11-04
+
+- R1 汉化优化：`M.i18n.reason` 错误码汉化表（no-adapter/empty/nan/no-person/parent-missing/range:* → 中文提示），04/05/06 状态栏统一走汉化；07 生态层引用 01-core 的 i18n 基础。单测扩至 35 项。
+- R2 边界与一致性：地点页自定义跳转成功后清空输入框；README 开发闭环描述更新（动态语法扫描）；pack/tests 两处 ORDER 加同步纪律注释。
+
 ## [0.6.0] - 2026-11-04
 
 - P5 CoT 生态适配：`07-p5-eco.js` 运行时生态检测（modI18N / ModUtils / modSC2DataManager / setup.mbStageCE 自检）、about 页生态块（依赖声明 + 官方内置 16 mod 清单 + 使用说明）、I18n 钩子 `M.i18n`（原文直通，接 i18n.json 留待后续）。
