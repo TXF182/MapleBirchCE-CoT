@@ -17,6 +17,7 @@
   var uiLsKey = CID + "_ui";
   var uiTabKey = CID + "_ui_tab"; // 页签记忆（R6）
   var uiFontKey = CID + "_ui_font"; // 字号设置（R7）
+  var uiPosKey = CID + "_ui_pos"; // 面板位置记忆（R9）
   var FONTS = ["12px", "13px", "14px", "15px", "16px"];
   var fontIdx = 2;
 
@@ -208,6 +209,19 @@
     var fi = parseInt(savedFont, 10);
     fontIdx = (!isNaN(fi) && fi >= 0 && fi < FONTS.length) ? fi : 2;
     applyFont();
+    // 面板位置记忆恢复（R9）
+    try {
+      var savedPos = localStorage.getItem(uiPosKey);
+      if (savedPos) {
+        var pos = JSON.parse(savedPos);
+        if (pos && pos.left && pos.top) {
+          panel.style.left = pos.left;
+          panel.style.top = pos.top;
+          panel.style.right = "auto";
+          panel.style.bottom = "auto";
+        }
+      }
+    } catch (e) {}
     var saved = "off";
     try { saved = localStorage.getItem(uiLsKey) || "off"; } catch (e) {}
     if (saved === "on") { toggle(true); }
@@ -260,6 +274,10 @@
     dragState = null;
     document.removeEventListener("mousemove", onDragMove);
     document.removeEventListener("mouseup", onDragUp);
+    try {
+      var l = state.panel.style.left;
+      if (l) { localStorage.setItem(uiPosKey, JSON.stringify({ left: state.panel.style.left, top: state.panel.style.top })); }
+    } catch (e) {}
   }
 
   function init() {

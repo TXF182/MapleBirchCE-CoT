@@ -211,10 +211,25 @@
 
     var list = D.discoverPeople();
     if (list.length === 0) { box.appendChild(el("p", "mbce-plain", "（暂无认识的人，剧情推进后出现）")); return true; }
+    // 每 NPC 折叠状态记忆（R9）：mbCE_cot_ui_rel 存收起 NPC 名
+    var relLsKey = "mbCE_cot_ui_rel";
+    function readClosedRel() {
+      try { var arr = JSON.parse(localStorage.getItem(relLsKey) || "[]"); return Array.isArray(arr) ? arr : []; }
+      catch (e) { return []; }
+    }
+    var closedRel = readClosedRel();
     list.forEach(function (p) {
       // 分组优化：每 NPC 一个折叠块（默认展开）
       var det = el("details");
-      det.open = "open";
+      det.open = (closedRel.indexOf(p.name) >= 0) ? "" : "open";
+      det.addEventListener("toggle", function () {
+        var arr = readClosedRel();
+        var isOpen = !!det.open;
+        var i = arr.indexOf(p.name);
+        if (!isOpen && i < 0) { arr.push(p.name); }
+        if (isOpen && i >= 0) { arr.splice(i, 1); }
+        try { localStorage.setItem(relLsKey, JSON.stringify(arr)); } catch (e) {}
+      });
       var head = p.name;
       if (p.relationship !== undefined) { head += " · " + relLabel(p.relationship); }
       if (p.special) { head += " · 特殊"; }

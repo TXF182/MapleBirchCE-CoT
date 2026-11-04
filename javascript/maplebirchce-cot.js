@@ -6,7 +6,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.6"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.6.7"; // 双源：boot.json version 必须一致
 
 window.mbCE_cot = {
   version: MCE_VERSION,
@@ -62,6 +62,7 @@ window.mbCE_cot = {
   var uiLsKey = CID + "_ui";
   var uiTabKey = CID + "_ui_tab"; // 页签记忆（R6）
   var uiFontKey = CID + "_ui_font"; // 字号设置（R7）
+  var uiPosKey = CID + "_ui_pos"; // 面板位置记忆（R9）
   var FONTS = ["12px", "13px", "14px", "15px", "16px"];
   var fontIdx = 2;
 
@@ -253,6 +254,19 @@ window.mbCE_cot = {
     var fi = parseInt(savedFont, 10);
     fontIdx = (!isNaN(fi) && fi >= 0 && fi < FONTS.length) ? fi : 2;
     applyFont();
+    // 面板位置记忆恢复（R9）
+    try {
+      var savedPos = localStorage.getItem(uiPosKey);
+      if (savedPos) {
+        var pos = JSON.parse(savedPos);
+        if (pos && pos.left && pos.top) {
+          panel.style.left = pos.left;
+          panel.style.top = pos.top;
+          panel.style.right = "auto";
+          panel.style.bottom = "auto";
+        }
+      }
+    } catch (e) {}
     var saved = "off";
     try { saved = localStorage.getItem(uiLsKey) || "off"; } catch (e) {}
     if (saved === "on") { toggle(true); }
@@ -305,6 +319,10 @@ window.mbCE_cot = {
     dragState = null;
     document.removeEventListener("mousemove", onDragMove);
     document.removeEventListener("mouseup", onDragUp);
+    try {
+      var l = state.panel.style.left;
+      if (l) { localStorage.setItem(uiPosKey, JSON.stringify({ left: state.panel.style.left, top: state.panel.style.top })); }
+    } catch (e) {}
   }
 
   function init() {
@@ -535,9 +553,10 @@ window.mbCE_cot = {
     return base;
   }
 
-  function rowEl(label, value, onSave) {
+  function rowEl(label, value, onSave, key) {
     var wrap = el("div");
     wrap.className = "mbce-row";
+    if (key !== undefined) { wrap.setAttribute("data-key", String(key)); }
     wrap.appendChild(el("span", "mbce-row-label", label));
     var inp = el("input", "mbce-in");
     inp.type = "number";
@@ -562,6 +581,26 @@ window.mbCE_cot = {
     var a = adapter();
     if (!a) { box.appendChild(el("p", "mbce-plain", "适配层未就绪")); return true; }
     box.appendChild(el("p", "mbce-plain", "写入即时生效并留痕 $mbCE_wrote；读档可回退。"));
+    // 搜索过滤（R9）：按键名/路径过滤所有行，输入即时过滤
+    var rows = [];
+    function makeRow(label, value, onSave, key) {
+      var r = rowEl(label, value, onSave, key);
+      rows.push(r);
+      return r;
+    }
+    var sRow = el("div", "mbce-row");
+    sRow.appendChild(el("span", "mbce-row-label", "过滤（按键名/路径）"));
+    var sInp = el("input", "mbce-in");
+    sInp.type = "text";
+    sInp.addEventListener("input", function () {
+      var q = sInp.value.trim().toLowerCase();
+      rows.forEach(function (r) {
+        var k = (r.getAttribute("data-key") || "").toLowerCase();
+        r.style.display = (!q || k.indexOf(q) >= 0) ? "" : "none";
+      });
+    });
+    sRow.appendChild(sInp);
+    box.appendChild(sRow);
     // 分组折叠：每组一个 <details open>，标题可点击收起/展开；折叠状态记忆（R8）
     var statsLsKey = "mbCE_cot_ui_stats";
     function readClosedGroups() {
@@ -591,13 +630,13 @@ window.mbCE_cot = {
     Object.keys(TOP).forEach(function (k) {
       var meta = TOP[k];
       var cur = a.readVar(meta.path);
-      topBody.appendChild(rowEl(meta.label + "（" + meta.path + "）", cur, function (raw) { return applyEdit(k, null, raw); }));
+      topBody.appendChild(makeRow(meta.label + "（" + meta.path + "）", cur, function (raw) { return applyEdit(k, null, raw); }, meta.path));
     });
     GROUPS.forEach(function (g) {
       var body = groupBlock(g.label + "（$" + g.path + "）", g.id);
       var base = readGroup(g.path);
       g.keys.forEach(function (kv) {
-        body.appendChild(rowEl(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }));
+        body.appendChild(makeRow(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }, kv[0]));
       });
     });
     return true;
@@ -872,10 +911,25 @@ window.mbCE_cot = {
 
     var list = D.discoverPeople();
     if (list.length === 0) { box.appendChild(el("p", "mbce-plain", "（暂无认识的人，剧情推进后出现）")); return true; }
+    // 每 NPC 折叠状态记忆（R9）：mbCE_cot_ui_rel 存收起 NPC 名
+    var relLsKey = "mbCE_cot_ui_rel";
+    function readClosedRel() {
+      try { var arr = JSON.parse(localStorage.getItem(relLsKey) || "[]"); return Array.isArray(arr) ? arr : []; }
+      catch (e) { return []; }
+    }
+    var closedRel = readClosedRel();
     list.forEach(function (p) {
       // 分组优化：每 NPC 一个折叠块（默认展开）
       var det = el("details");
-      det.open = "open";
+      det.open = (closedRel.indexOf(p.name) >= 0) ? "" : "open";
+      det.addEventListener("toggle", function () {
+        var arr = readClosedRel();
+        var isOpen = !!det.open;
+        var i = arr.indexOf(p.name);
+        if (!isOpen && i < 0) { arr.push(p.name); }
+        if (isOpen && i >= 0) { arr.splice(i, 1); }
+        try { localStorage.setItem(relLsKey, JSON.stringify(arr)); } catch (e) {}
+      });
       var head = p.name;
       if (p.relationship !== undefined) { head += " · " + relLabel(p.relationship); }
       if (p.special) { head += " · 特殊"; }

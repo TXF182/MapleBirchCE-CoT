@@ -76,7 +76,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.6.6");
+  assert.strictEqual(M.version, "0.6.7");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -140,7 +140,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.6.6");
+  assert.strictEqual(c.version, "0.6.7");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -152,7 +152,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.6.6");
+  assert.strictEqual(st.version, "0.6.7");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -486,13 +486,15 @@ test("R5: 数值页分组折叠（4 组 details）", () => {
   const box = env.sandbox.document.createElement("div");
   const ok = env.sandbox.mbCE_cot.data.render("stats", box);
   assert.strictEqual(ok, true);
-  assert.strictEqual(box.children.length, 5, "提示 + 4 分组");
-  const titles = box.children.map(c => c.children[0] && c.children[0].textContent);
+  const groupTitles = ["顶层数值与时间", "技能（$pcskills）", "身体（$pcstats）", "需求（$pcneeds）"];
+  const details = box.children.filter(c => c.children && c.children.length > 0 && groupTitles.indexOf(c.children[0].textContent) >= 0);
+  assert.strictEqual(details.length, 4, "4 个分组 details");
+  const titles = details.map(c => c.children[0].textContent);
   assert.ok(titles.some(t => t === "顶层数值与时间"), "TOP 组标题");
   assert.ok(titles.some(t => t === "技能（$pcskills）"), "技能组标题");
   assert.ok(titles.some(t => t === "身体（$pcstats）"), "身体组标题");
   assert.ok(titles.some(t => t === "需求（$pcneeds）"), "需求组标题");
-  assert.ok(box.children.slice(1).every(c => c.open === "open"), "4 个分组默认展开");
+  assert.ok(details.every(c => c.open === "open"), "4 个分组默认展开");
 });
 
 test("R6: 页签记忆（恢复 + 切换持久化）", () => {
@@ -688,6 +690,52 @@ test("R8: 关系页每 NPC 折叠块", () => {
     });
   })(box);
   assert.ok(sumTexts.indexOf("Alice") >= 0, "NPC 折叠标题含名字");
+});
+
+test("R9: 数值页搜索过滤（输入框 + data-key 行）", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.people = {};
+  const box = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("stats", box);
+  let hasSearch = false, hasKeyRow = false;
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.className === "mbce-row" && c.children.length === 2 && c.children[1].type === "text") { hasSearch = true; }
+      if (c.className === "mbce-row" && c.getAttribute("data-key") === "Charisma") { hasKeyRow = true; }
+      walk(c);
+    });
+  })(box);
+  assert.strictEqual(hasSearch, true, "存在过滤输入框");
+  assert.strictEqual(hasKeyRow, true, "技能行带 data-key");
+});
+
+test("R9: 面板位置记忆（拖拽恢复）", () => {
+  const env = makeEnv();
+  env.sandbox.localStorage.setItem("mbCE_cot_ui_pos", '{"left":"120px","top":"80px"}');
+  loadAll(env);
+  const panel = env.sandbox.document.body.children.filter(c => c.id === "mbCE_cot_panel")[0];
+  assert.ok(panel, "面板已注入");
+  assert.strictEqual(panel.style.left, "120px", "恢复 left");
+  assert.strictEqual(panel.style.top, "80px", "恢复 top");
+});
+
+test("R9: 关系页 NPC 折叠记忆（恢复）", () => {
+  const env = makeEnv();
+  env.sandbox.localStorage.setItem("mbCE_cot_ui_rel", '["Alice"]');
+  loadAll(env);
+  env.sandbox.State.variables.people = { "Alice": {}, "Bob": {} };
+  const box = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("rel", box);
+  let aliceDet = null, bobDet = null;
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.children && c.children.length > 1 && c.children[0] && c.children[0].textContent === "Alice") { aliceDet = c; }
+      if (c.children && c.children.length > 1 && c.children[0] && c.children[0].textContent === "Bob") { bobDet = c; }
+      walk(c);
+    });
+  })(box);
+  assert.ok(aliceDet && !aliceDet.open, "记忆的收起 NPC 默认收起");
+  assert.ok(bobDet && bobDet.open, "未收起 NPC 默认展开");
 });
 
 let failed = 0;

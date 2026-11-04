@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [0.6.7] - 2026-11-04
+
+- R9 三项增强：
+  - **$pcskills 搜索过滤**：数值页顶部新增过滤输入框，按键名/路径即时过滤所有行（隐藏不匹配），行带 `data-key` 属性。
+  - **面板位置记忆**：拖拽结束保存位置（`mbCE_cot_ui_pos`），重开面板恢复 left/top（清 right/bottom）。
+  - **关系页 NPC 折叠记忆**：每 NPC 折叠状态持久化（`mbCE_cot_ui_rel` 记收起 NPC 名），刷新恢复。
+- 安装包：`MapleBirchCE-CoT-0.6.7.mod.zip`（ZIP SHA256 `29AF3265...A9965`，结构已验证：boot.json 根 + javascript/ + twee/ + README.md）。
+- 单测扩至 52 项。
+
 ## [0.6.6] - 2026-11-04
 
 - R8 四项增强：

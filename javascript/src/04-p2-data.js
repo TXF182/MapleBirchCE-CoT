@@ -76,9 +76,10 @@
     return base;
   }
 
-  function rowEl(label, value, onSave) {
+  function rowEl(label, value, onSave, key) {
     var wrap = el("div");
     wrap.className = "mbce-row";
+    if (key !== undefined) { wrap.setAttribute("data-key", String(key)); }
     wrap.appendChild(el("span", "mbce-row-label", label));
     var inp = el("input", "mbce-in");
     inp.type = "number";
@@ -103,6 +104,26 @@
     var a = adapter();
     if (!a) { box.appendChild(el("p", "mbce-plain", "适配层未就绪")); return true; }
     box.appendChild(el("p", "mbce-plain", "写入即时生效并留痕 $mbCE_wrote；读档可回退。"));
+    // 搜索过滤（R9）：按键名/路径过滤所有行，输入即时过滤
+    var rows = [];
+    function makeRow(label, value, onSave, key) {
+      var r = rowEl(label, value, onSave, key);
+      rows.push(r);
+      return r;
+    }
+    var sRow = el("div", "mbce-row");
+    sRow.appendChild(el("span", "mbce-row-label", "过滤（按键名/路径）"));
+    var sInp = el("input", "mbce-in");
+    sInp.type = "text";
+    sInp.addEventListener("input", function () {
+      var q = sInp.value.trim().toLowerCase();
+      rows.forEach(function (r) {
+        var k = (r.getAttribute("data-key") || "").toLowerCase();
+        r.style.display = (!q || k.indexOf(q) >= 0) ? "" : "none";
+      });
+    });
+    sRow.appendChild(sInp);
+    box.appendChild(sRow);
     // 分组折叠：每组一个 <details open>，标题可点击收起/展开；折叠状态记忆（R8）
     var statsLsKey = "mbCE_cot_ui_stats";
     function readClosedGroups() {
@@ -132,13 +153,13 @@
     Object.keys(TOP).forEach(function (k) {
       var meta = TOP[k];
       var cur = a.readVar(meta.path);
-      topBody.appendChild(rowEl(meta.label + "（" + meta.path + "）", cur, function (raw) { return applyEdit(k, null, raw); }));
+      topBody.appendChild(makeRow(meta.label + "（" + meta.path + "）", cur, function (raw) { return applyEdit(k, null, raw); }, meta.path));
     });
     GROUPS.forEach(function (g) {
       var body = groupBlock(g.label + "（$" + g.path + "）", g.id);
       var base = readGroup(g.path);
       g.keys.forEach(function (kv) {
-        body.appendChild(rowEl(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }));
+        body.appendChild(makeRow(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }, kv[0]));
       });
     });
     return true;
