@@ -31,6 +31,11 @@
 
   var TOP = {
     money: { path: "pcmoney", label: "金钱", type: "int" },
+    day: { path: "day", label: "日（$day）", type: "int", min: 1, max: 31 },
+    month: { path: "month", label: "月索引（$month，0=Autumber）", type: "int", min: 0, max: 11 },
+    year: { path: "year", label: "年（$year）", type: "int", min: 1, max: 9999 },
+    gameday: { path: "gameday", label: "游戏日（$gameday）", type: "int", min: 1, max: 9999 },
+    gameyear: { path: "gameyear", label: "游戏年（$gameyear）", type: "int", min: 1, max: 9999 },
     hour: { path: "hour", label: "小时", type: "int", min: 0, max: 23 },
     minute: { path: "minute", label: "分钟", type: "int", min: 0, max: 59 },
   };

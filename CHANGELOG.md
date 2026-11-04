@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [0.5.0] - 2026-11-04
+
+- P4 场景/地点页：`06-p4-places.js` 地点跳转（`$location`=passage 名，13 个已知地点 + 自定义）、`$peopleatlocation` 在场人物、`$weather` 只读、`$preencountertags` 清空、`$lastloc/$lastloctags`、Findr 只读；时间键补全日/月/年/游戏日/游戏年（含范围校验，月为索引 0=Autumber）。写入走 adapter 留痕。
+- 单测扩至 28 项。
+
 ## [0.4.0] - 2026-11-04
 
 - P3 关系/恋爱页：`05-p3-relations.js` 恋爱数值轴编辑（`$people[NPC].attitude.friendship/romance/lust`，-1000~1000 校验，容器缺失自动建）、`$crush` 暗恋对象设置/清空、relationship/partner 只读展示。写入全部走 adapter 留痕。

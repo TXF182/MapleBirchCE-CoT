@@ -1,7 +1,7 @@
 # MapleBirchCE-CoT · CoT 全局调试面板（移植项目）
 
 > 将 DoL 版 MapleBirchCE（v1.9.27）移植到 Course of Temptation（CoT 0.8.2i）。
-> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 3 完成（关系/恋爱页：attitude 三轴编辑 + `$crush` + 关系标签展示）**。
+> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 4 完成（场景/地点页：地点跳转 + 天气/在场人物/场景标签 + 时间键补全）**。
 
 ## 决策记录（2026-11-04 用户拍板）
 
