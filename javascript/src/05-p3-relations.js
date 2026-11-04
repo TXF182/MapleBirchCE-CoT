@@ -88,7 +88,7 @@
     if (raw === undefined || raw === null) { return { ok: false, reason: "empty" }; }
     var base = a.readVar("people." + person);
     if (!base || typeof base !== "object") { return { ok: false, reason: "no-person" }; }
-    if (field === "nickname" || field === "gender" || field === "label") {
+    if (field === "nickname" || field === "gender" || field === "label" || field === "major") {
       var v = String(raw).trim();
       if (!v) { return { ok: false, reason: "empty" }; }
       return a.writeVar("people." + person + "." + field, v);
@@ -98,6 +98,12 @@
       if (!isFinite(n)) { return { ok: false, reason: "nan" }; }
       if (n < 1 || n > 120) { return { ok: false, reason: "range:1-120" }; }
       return a.writeVar("people." + person + ".age", n);
+    }
+    if (field === "year") {
+      var y = Number(raw);
+      if (!isFinite(y)) { return { ok: false, reason: "nan" }; }
+      if (y < 1 || y > 10) { return { ok: false, reason: "range:1-10" }; }
+      return a.writeVar("people." + person + ".year", y);
     }
     return { ok: false, reason: "empty" };
   }
@@ -180,16 +186,41 @@
     });
     cRow.appendChild(cClr);
     crushBox.appendChild(cRow);
+    // crush 下拉选择（$people 键，change 即时写；文本输入保留供自定义）
+    var cSelRow = el("div", "mbce-row");
+    cSelRow.appendChild(el("span", "mbce-row-label", "选择 NPC"));
+    var cSel = el("select", "mbce-in");
+    var names = D.discoverPeople().map(function (p) { return p.name; });
+    var allNames = names.slice();
+    if (curCrush && allNames.indexOf(String(curCrush)) < 0) { allNames.unshift(String(curCrush)); }
+    if (allNames.length === 0) { allNames.push(""); }
+    allNames.forEach(function (nm) {
+      var opt = el("option", null, nm);
+      opt.value = nm;
+      if (nm === String(curCrush || "")) { opt.selected = true; }
+      cSel.appendChild(opt);
+    });
+    cSel.addEventListener("change", function () {
+      var r = setCrush(cSel.value);
+      if (r && r.ok) { cInp.value = String(r.to); }
+      else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+    });
+    cSelRow.appendChild(cSel);
+    crushBox.appendChild(cSelRow);
     box.appendChild(crushBox);
 
     var list = D.discoverPeople();
     if (list.length === 0) { box.appendChild(el("p", "mbce-plain", "（暂无认识的人，剧情推进后出现）")); return true; }
     list.forEach(function (p) {
-      var g = el("div", "mbce-group");
+      // 分组优化：每 NPC 一个折叠块（默认展开）
+      var det = el("details");
+      det.open = "open";
       var head = p.name;
       if (p.relationship !== undefined) { head += " · " + relLabel(p.relationship); }
       if (p.special) { head += " · 特殊"; }
-      g.appendChild(el("b", null, head));
+      det.appendChild(el("summary", null, head));
+      var g = el("div", "mbce-group");
+      det.appendChild(g);
       var info = a.readVar("people." + p.name);
       if (info) {
         var pts = [];
@@ -206,12 +237,40 @@
       var relBtn = el("button", "mbce-btn", "保存");
       relBtn.addEventListener("click", function () {
         var r = writeRelationship(p.name, relInp.value);
-        if (r && r.ok) { relInp.value = String(r.to); }
+        if (r && r.ok) { relInp.value = String(r.to); refreshRelChips(); }
         else { statusMsg((r && r.reason) ? r.reason : "失败"); }
       });
       relRow.appendChild(relBtn);
       g.appendChild(relRow);
-      g.appendChild(el("p", "mbce-plain", "可选标签：" + REL_HINTS.join(" / ") + "（可自定义，留空 = 清除）"));
+      // relationship 枚举 chip（点击即时写，再点取消=清除）
+      var curRel = (info && info.relationship !== undefined) ? String(info.relationship) : "";
+      function refreshRelChips() {
+        Array.prototype.forEach.call(relChips.children, function (c) {
+          c.className = "mbce-chip" + (c.getAttribute("data-rel") === curRel ? " on" : "");
+        });
+      }
+      var relChips = el("div", "mbce-row");
+      REL_HINTS.forEach(function (tag) {
+        var c = el("button", "mbce-chip" + (curRel === tag ? " on" : ""), tag);
+        c.title = REL_LABELS[tag] || tag;
+        c.setAttribute("data-rel", tag);
+        c.addEventListener("click", function () {
+          var target = (curRel === tag) ? "" : tag;
+          var r = writeRelationship(p.name, target);
+          if (r && r.ok) { curRel = String(r.to); relInp.value = curRel; refreshRelChips(); }
+          else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+        });
+        relChips.appendChild(c);
+      });
+      var clrRel = el("button", "mbce-btn", "清除标签");
+      clrRel.addEventListener("click", function () {
+        var r = writeRelationship(p.name, "");
+        if (r && r.ok) { curRel = ""; relInp.value = ""; refreshRelChips(); }
+        else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+      });
+      relChips.appendChild(clrRel);
+      g.appendChild(relChips);
+      g.appendChild(el("p", "mbce-plain", "点击枚举标签即时保存（再点取消）；也可在上方输入自定义文本。"));
       var att = null;
       if (info && info.attitude && typeof info.attitude === "object") { att = info.attitude; }
       // $people 深层字段：昵称 + 年龄
@@ -261,6 +320,23 @@
         g.appendChild(row);
       });
       g.appendChild(el("p", "mbce-plain", "注：gender 仅改字段，身体部件/代词/标签在构造时定，不随动。"));
+      // 专业 + 学年（R8）
+      [["major", "专业（major）"], ["year", "学年（year，1-10）"]].forEach(function (kv) {
+        var row = el("div", "mbce-row");
+        row.appendChild(el("span", "mbce-row-label", kv[1]));
+        var inp = el("input", "mbce-in");
+        inp.type = (kv[0] === "year") ? "number" : "text";
+        inp.value = (info && info[kv[0]] !== undefined) ? String(info[kv[0]]) : "";
+        row.appendChild(inp);
+        var btn = el("button", "mbce-btn", "保存");
+        btn.addEventListener("click", function () {
+          var r = writePersonField(p.name, kv[0], inp.value);
+          if (r && r.ok) { inp.value = String(r.to); }
+          else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+        });
+        row.appendChild(btn);
+        g.appendChild(row);
+      });
       // 已知状态（make_known 语义双键）
       var knownRow = el("div", "mbce-row");
       var curKnown = !!(info && info.name_known);
@@ -305,7 +381,7 @@
       ATT_TYPES.forEach(function (kv) {
         g.appendChild(rowEl(kv[1] + "（attitude." + kv[0] + "）", att ? att[kv[0]] : undefined, function (raw) { return writeAttitude(p.name, kv[0], raw); }));
       });
-      box.appendChild(g);
+      box.appendChild(det);
     });
     return true;
   }

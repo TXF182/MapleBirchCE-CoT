@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [0.6.6] - 2026-11-04
+
+- R8 四项增强：
+  - **relationship 枚举 chip**：关系标签从文本输入升级为 4 个枚举 chip（best friend/fuckbuddy/hatefuck/submissive，点击即时写、再点取消=清除、选中高亮、悬停显示中文释义），自定义文本输入保留，另有"清除标签"按钮。
+  - **$crush 下拉选择**：暗恋对象新增 NPC 下拉（$people 键，change 即时写），文本输入保留供自定义；确认 $crush 为纯字符串 NPC 名。
+  - **people 其他字段**：每 NPC 新增专业（major，文本）与学年（year，1-10 校验）编辑。
+  - **分组优化**：数值页四组折叠状态持久化（`mbCE_cot_ui_stats` 记收起组）；关系页每 NPC 变为可折叠块（默认展开，标题含关系摘要）。
+- 取证（scan15）：relationship 字符串赋值仅见 `"best friend"`（其余枚举用于 setup.Relationships 体系/物品 appeal/findnpc）；year 赋值样本 1/3（学年制）；$crush 无 stage 对象，全为 `==` 字符串比较；major 文本（psychology/business 等）。
+- 单测扩至 49 项（mock 元素补 getAttribute/setAttribute 存取）。
+
 ## [0.6.5] - 2026-11-04
 
 - R7 三项增强：

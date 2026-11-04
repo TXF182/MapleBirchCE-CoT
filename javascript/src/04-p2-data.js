@@ -103,24 +103,39 @@
     var a = adapter();
     if (!a) { box.appendChild(el("p", "mbce-plain", "适配层未就绪")); return true; }
     box.appendChild(el("p", "mbce-plain", "写入即时生效并留痕 $mbCE_wrote；读档可回退。"));
-    // 分组折叠：每组一个 <details open>，标题可点击收起/展开
-    function groupBlock(title) {
+    // 分组折叠：每组一个 <details open>，标题可点击收起/展开；折叠状态记忆（R8）
+    var statsLsKey = "mbCE_cot_ui_stats";
+    function readClosedGroups() {
+      try { var arr = JSON.parse(localStorage.getItem(statsLsKey) || "[]"); return Array.isArray(arr) ? arr : []; }
+      catch (e) { return []; }
+    }
+    function groupBlock(title, gid) {
       var det = el("details");
       det.open = "open";
+      det.setAttribute("data-gid", gid);
+      if (readClosedGroups().indexOf(gid) >= 0) { det.open = ""; }
+      det.addEventListener("toggle", function () {
+        var arr = readClosedGroups();
+        var isOpen = !!det.open;
+        var i = arr.indexOf(gid);
+        if (!isOpen && i < 0) { arr.push(gid); }
+        if (isOpen && i >= 0) { arr.splice(i, 1); }
+        try { localStorage.setItem(statsLsKey, JSON.stringify(arr)); } catch (e) {}
+      });
       det.appendChild(el("summary", null, title));
       var body = el("div", "mbce-group");
       det.appendChild(body);
       box.appendChild(det);
       return body;
     }
-    var topBody = groupBlock("顶层数值与时间");
+    var topBody = groupBlock("顶层数值与时间", "top");
     Object.keys(TOP).forEach(function (k) {
       var meta = TOP[k];
       var cur = a.readVar(meta.path);
       topBody.appendChild(rowEl(meta.label + "（" + meta.path + "）", cur, function (raw) { return applyEdit(k, null, raw); }));
     });
     GROUPS.forEach(function (g) {
-      var body = groupBlock(g.label + "（$" + g.path + "）");
+      var body = groupBlock(g.label + "（$" + g.path + "）", g.id);
       var base = readGroup(g.path);
       g.keys.forEach(function (kv) {
         body.appendChild(rowEl(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }));

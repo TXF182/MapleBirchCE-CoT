@@ -19,11 +19,14 @@ const ORDER = ["01-core.js", "02-shell.js", "03-cot-adapter.js", "04-p2-data.js"
 function makeEl() {
   const children = [];
   const cls = { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); } };
+  const attrs = {};
   return {
     id: "", className: "", textContent: "", innerHTML: "", title: "", style: {}, children,
     classList: cls,
     addEventListener() {}, appendChild(n) { children.push(n); return n; },
-    setAttribute() {}, remove() {},
+    setAttribute(k, v) { attrs[k] = String(v); },
+    getAttribute(k) { return Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null; },
+    remove() {},
   };
 }
 
@@ -73,7 +76,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.6.5");
+  assert.strictEqual(M.version, "0.6.6");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -137,7 +140,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.6.5");
+  assert.strictEqual(c.version, "0.6.6");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -149,7 +152,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.6.5");
+  assert.strictEqual(st.version, "0.6.6");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -614,6 +617,77 @@ test("R7: 面板字号设置（持久化 + 恢复）", () => {
   env2.sandbox.localStorage.setItem("mbCE_cot_ui_font", "1");
   loadAll(env2);
   assert.strictEqual(env2.sandbox.mbCE_cot.shell.fontSize(), "13px", "恢复上次字号");
+});
+
+test("R8: relationship 枚举 chip + $crush 下拉渲染", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.people = { "Alice": { relationship: "best friend" } };
+  const box = env.sandbox.document.createElement("div");
+  const ok = env.sandbox.mbCE_cot.data.render("rel", box);
+  assert.strictEqual(ok, true);
+  let chips = [];
+  let sel = null;
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.className && c.className.indexOf("mbce-chip") === 0) { chips.push(c); }
+      if (c.className === "mbce-in" && c.children.length > 0 && typeof c.children[0].value === "string") { sel = sel || c; }
+      walk(c);
+    });
+  })(box);
+  assert.strictEqual(chips.length, 4, "4 个关系枚举 chip");
+  const bf = chips.filter(c => c.getAttribute("data-rel") === "best friend")[0];
+  assert.ok(bf && bf.className.indexOf(" on") >= 0, "当前值 chip 高亮");
+  assert.ok(sel !== null, "存在下拉选择器");
+});
+
+test("R8: major/year 字段校验", () => {
+  const env = makeEnv(); loadAll(env);
+  const R = env.sandbox.mbCE_cot.rel;
+  env.sandbox.State.variables.people = { "Alice": {} };
+  let r = R.writePersonField("Alice", "major", "psychology");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.people.Alice.major, "psychology");
+  r = R.writePersonField("Alice", "year", "3");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.people.Alice.year, 3);
+  r = R.writePersonField("Alice", "year", "0");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "range:1-10");
+  r = R.writePersonField("Alice", "year", "abc");
+  assert.strictEqual(r.reason, "nan");
+});
+
+test("R8: 数值页折叠状态记忆（恢复）", () => {
+  const env = makeEnv();
+  env.sandbox.localStorage.setItem("mbCE_cot_ui_stats", '["top"]');
+  loadAll(env);
+  env.sandbox.State.variables.people = {};
+  const box = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("stats", box);
+  let topDet = null;
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.getAttribute && c.getAttribute("data-gid") === "top") { topDet = c; }
+      walk(c);
+    });
+  })(box);
+  assert.ok(topDet !== null, "存在 top 组");
+  assert.ok(!topDet.open, "记忆的收起组默认收起");
+});
+
+test("R8: 关系页每 NPC 折叠块", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.people = { "Alice": {} };
+  const box = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("rel", box);
+  let sumTexts = [];
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.tagName === "summary" || (c.children && c.children.length === 0 && c.textContent === "Alice")) { sumTexts.push(c.textContent); }
+      walk(c);
+    });
+  })(box);
+  assert.ok(sumTexts.indexOf("Alice") >= 0, "NPC 折叠标题含名字");
 });
 
 let failed = 0;
