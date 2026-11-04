@@ -13,7 +13,7 @@ const vm = require("vm");
 const assert = require("assert");
 
 const SRC = path.join(__dirname, "..", "javascript", "src");
-const ORDER = ["01-core.js", "02-shell.js", "03-cot-adapter.js", "04-p2-data.js"];
+const ORDER = ["01-core.js", "02-shell.js", "03-cot-adapter.js", "04-p2-data.js", "05-p3-relations.js"];
 
 function makeEl() {
   const children = [];
@@ -72,7 +72,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.3.0");
+  assert.strictEqual(M.version, "0.4.0");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -136,7 +136,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.3.0");
+  assert.strictEqual(c.version, "0.4.0");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -148,7 +148,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.3.0");
+  assert.strictEqual(st.version, "0.4.0");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -238,13 +238,13 @@ test("P2: $people 自发现（角色页数据源）", () => {
   assert.strictEqual(list[1].special, true);
 });
 
-test("P2: render 路由（stats/char 处理，rel 交给 shell）", () => {
+test("P2: render 路由（stats/char 处理，place 交给 shell）", () => {
   const env = makeEnv(); loadAll(env);
   const D = env.sandbox.mbCE_cot.data;
   const box = env.sandbox.document.createElement("div");
   assert.strictEqual(D.render("stats", box), true);
   assert.strictEqual(D.render("char", box), true);
-  assert.strictEqual(D.render("rel", box), false);
+  assert.strictEqual(D.render("place", box), false);
 });
 
 test("shell: P2 页签走 data 渲染钩子", () => {
@@ -254,6 +254,61 @@ test("shell: P2 页签走 data 渲染钩子", () => {
   const tab = S.tabs.filter(t => t.id === "char")[0];
   const r = tab.render(box);
   assert.strictEqual(r, true, "char 页签由 data 渲染");
+});
+
+test("P3: attitude 写入（容器缺失自动建）+ 留痕", () => {
+  const env = makeEnv(); loadAll(env);
+  const R = env.sandbox.mbCE_cot.rel;
+  env.variables.people = { Bob: {} };
+  const r = R.writeAttitude("Bob", "romance", "500");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.people.Bob.attitude.romance, 500);
+  assert.strictEqual(env.variables.mbCE_wrote.length, 2);
+  assert.strictEqual(env.variables.mbCE_wrote[1].k, "people.Bob.attitude.romance");
+});
+
+test("P3: attitude 越界/非数字/对象缺失拒绝", () => {
+  const env = makeEnv(); loadAll(env);
+  const R = env.sandbox.mbCE_cot.rel;
+  env.variables.people = { Bob: { attitude: { lust: 100 } } };
+  const r1 = R.writeAttitude("Bob", "lust", "1500");
+  assert.strictEqual(r1.ok, false);
+  assert.ok(r1.reason.indexOf("range") === 0);
+  assert.strictEqual(env.variables.people.Bob.attitude.lust, 100);
+  const r2 = R.writeAttitude("Bob", "lust", "xyz");
+  assert.strictEqual(r2.ok, false);
+  assert.strictEqual(r2.reason, "nan");
+  const r3 = R.writeAttitude("Ghost", "lust", "100");
+  assert.strictEqual(r3.ok, false);
+  assert.strictEqual(r3.reason, "no-person");
+});
+
+test("P3: $crush 设置与清空", () => {
+  const env = makeEnv(); loadAll(env);
+  const R = env.sandbox.mbCE_cot.rel;
+  env.variables.crush = "Amy";
+  const r1 = R.setCrush("Bob");
+  assert.strictEqual(r1.ok, true);
+  assert.strictEqual(env.variables.crush, "Bob");
+  const r2 = R.setCrush("");
+  assert.strictEqual(r2.ok, true);
+  assert.strictEqual(env.variables.crush, "");
+});
+
+test("P3: render 路由（rel 由 P3 处理，char 仍走 P2）", () => {
+  const env = makeEnv(); loadAll(env);
+  const box = env.sandbox.document.createElement("div");
+  assert.strictEqual(env.sandbox.mbCE_cot.data.render("rel", box), true);
+  assert.strictEqual(env.sandbox.mbCE_cot.data.render("char", box), true);
+  assert.strictEqual(env.sandbox.mbCE_cot.data.render("place", box), false);
+});
+
+test("shell: P3 关系页签走 data 渲染钩子", () => {
+  const env = makeEnv(); loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  const box = env.sandbox.document.createElement("div");
+  const tab = S.tabs.filter(t => t.id === "rel")[0];
+  assert.strictEqual(tab.render(box), true, "rel 页签由 data 渲染");
 });
 
 let failed = 0;

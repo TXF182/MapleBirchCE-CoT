@@ -19,7 +19,7 @@
   var TABS = [
     { id: "char",  label: "角色", render: function (box) { return hookRender("char", box); } },
     { id: "stats", label: "数值", render: function (box) { return hookRender("stats", box); } },
-    { id: "rel",   label: "关系" },
+    { id: "rel",   label: "关系", render: function (box) { return hookRender("rel", box); } },
     { id: "place", label: "地点" },
     { id: "scene", label: "场景" },
     { id: "about", label: "关于" },
