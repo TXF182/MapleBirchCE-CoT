@@ -35,7 +35,7 @@
 
   function statusMsg(reason) {
     var st = M.shell && M.shell.statusEl;
-    if (st) { st.textContent = "保存未生效：" + reason + "（$mbCE_wrote 可查）"; }
+    if (st) { st.textContent = "保存未生效：" + (M.i18n && M.i18n.reason ? M.i18n.reason(reason) : reason) + "（$mbCE_wrote 可查）"; }
   }
 
   function setLocation(name) {

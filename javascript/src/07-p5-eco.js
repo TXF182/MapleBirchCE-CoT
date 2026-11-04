@@ -34,10 +34,6 @@
     return out;
   }
 
-  function i18nT(key, fallback) {
-    return (fallback === undefined || fallback === null) ? key : fallback;
-  }
-
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) { n.className = cls; }
@@ -76,12 +72,11 @@
   M.eco = {
     version: M.version,
     detect: detect,
-    i18n: { enabled: false, t: i18nT },
+    i18n: M.i18n, // 引用 01-core 的 i18n 基础（t + reason 汉化表）
     renderAbout: renderAbout,
     officialMods: OFFICIAL_MODS,
     deps: DEPS,
   };
-  M.i18n = M.eco.i18n; // I18n 钩子别名
 
   var origRender = M.data.render;
   M.data.render = function (tabId, box) {

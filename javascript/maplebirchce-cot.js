@@ -6,7 +6,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.0"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.6.1"; // 双源：boot.json version 必须一致
 
 window.mbCE_cot = {
   version: MCE_VERSION,
@@ -17,6 +17,28 @@ window.mbCE_cot = {
   stage: { core: "ok", adapter: "pending", shell: "pending", keys: "pending" },
   adapter: null, // 03-cot-adapter.js 注入
   shell: null,   // 02-shell.js 注入
+  // i18n 基础（P5 生态层引用）：t 原文直通，reason 把用户可见的错误码汉化
+  i18n: {
+    enabled: false,
+    t: function (key, fallback) {
+      return (fallback === undefined || fallback === null) ? key : fallback;
+    },
+    reasons: {
+      "no-adapter": "适配层未就绪",
+      "no-store": "存档存储不可用",
+      "undefined-value": "值为 undefined（拒绝写入）",
+      "empty": "值为空",
+      "nan": "非数字",
+      "no-person": "该对象不存在",
+      "parent-missing": "父级键缺失",
+    },
+    reason: function (code) {
+      if (!code) { return "失败"; }
+      if (code.indexOf("range:") === 0) { return "超出范围：" + code.slice(6); }
+      var head = code.split(":")[0];
+      return (this.reasons[head] !== undefined) ? this.reasons[head] : code;
+    },
+  },
 };
 
 /* ===== 02-shell.js ===== */
@@ -447,7 +469,7 @@ window.mbCE_cot = {
       if (r && r.ok) { inp.value = String(r.to); }
       else {
         inp.value = (value === undefined || value === null) ? "" : String(value);
-        var msg = (r && r.reason) ? r.reason : "失败";
+        var msg = (r && r.reason) ? (M.i18n && M.i18n.reason ? M.i18n.reason(r.reason) : r.reason) : "失败";
         var st = M.shell && M.shell.statusEl;
         if (st) { st.textContent = "保存未生效：" + msg + "（写档留痕 $mbCE_wrote 可查）"; }
       }
@@ -570,7 +592,7 @@ window.mbCE_cot = {
 
   function statusMsg(reason) {
     var st = M.shell && M.shell.statusEl;
-    if (st) { st.textContent = "保存未生效：" + reason + "（$mbCE_wrote 可查）"; }
+    if (st) { st.textContent = "保存未生效：" + (M.i18n && M.i18n.reason ? M.i18n.reason(reason) : reason) + "（$mbCE_wrote 可查）"; }
   }
 
   function writeAttitude(person, type, raw) {
@@ -722,7 +744,7 @@ window.mbCE_cot = {
 
   function statusMsg(reason) {
     var st = M.shell && M.shell.statusEl;
-    if (st) { st.textContent = "保存未生效：" + reason + "（$mbCE_wrote 可查）"; }
+    if (st) { st.textContent = "保存未生效：" + (M.i18n && M.i18n.reason ? M.i18n.reason(reason) : reason) + "（$mbCE_wrote 可查）"; }
   }
 
   function setLocation(name) {
@@ -908,10 +930,6 @@ window.mbCE_cot = {
     return out;
   }
 
-  function i18nT(key, fallback) {
-    return (fallback === undefined || fallback === null) ? key : fallback;
-  }
-
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) { n.className = cls; }
@@ -950,12 +968,11 @@ window.mbCE_cot = {
   M.eco = {
     version: M.version,
     detect: detect,
-    i18n: { enabled: false, t: i18nT },
+    i18n: M.i18n, // 引用 01-core 的 i18n 基础（t + reason 汉化表）
     renderAbout: renderAbout,
     officialMods: OFFICIAL_MODS,
     deps: DEPS,
   };
-  M.i18n = M.eco.i18n; // I18n 钩子别名
 
   var origRender = M.data.render;
   M.data.render = function (tabId, box) {

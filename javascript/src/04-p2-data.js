@@ -90,7 +90,7 @@
       if (r && r.ok) { inp.value = String(r.to); }
       else {
         inp.value = (value === undefined || value === null) ? "" : String(value);
-        var msg = (r && r.reason) ? r.reason : "失败";
+        var msg = (r && r.reason) ? (M.i18n && M.i18n.reason ? M.i18n.reason(r.reason) : r.reason) : "失败";
         var st = M.shell && M.shell.statusEl;
         if (st) { st.textContent = "保存未生效：" + msg + "（写档留痕 $mbCE_wrote 可查）"; }
       }
