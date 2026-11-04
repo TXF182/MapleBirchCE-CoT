@@ -80,17 +80,18 @@
     return a.writeVar("people." + person + ".relationship", v);
   }
 
-  // $people 深层字段（Person 实例属性，直改留痕；年龄范围保守校验）
+  // $people 深层字段（Person 实例属性，直改留痕）
+  //   nickname/label/gender = 文本；age = 1-120；gender 仅改字段，身体部件/代词/标签不随动（构造时定）
   function writePersonField(person, field, raw) {
     var a = adapter();
     if (!a) { return { ok: false, reason: "no-adapter" }; }
     if (raw === undefined || raw === null) { return { ok: false, reason: "empty" }; }
     var base = a.readVar("people." + person);
     if (!base || typeof base !== "object") { return { ok: false, reason: "no-person" }; }
-    if (field === "nickname") {
+    if (field === "nickname" || field === "gender" || field === "label") {
       var v = String(raw).trim();
       if (!v) { return { ok: false, reason: "empty" }; }
-      return a.writeVar("people." + person + ".nickname", v);
+      return a.writeVar("people." + person + "." + field, v);
     }
     if (field === "age") {
       var n = Number(raw);
@@ -99,6 +100,37 @@
       return a.writeVar("people." + person + ".age", n);
     }
     return { ok: false, reason: "empty" };
+  }
+
+  // name_known 双键（模仿 setup.people.make_known 语义：name_known + known 同步写）
+  function markKnown(person, known) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    var base = a.readVar("people." + person);
+    if (!base || typeof base !== "object") { return { ok: false, reason: "no-person" }; }
+    var r1 = a.writeVar("people." + person + ".name_known", !!known);
+    var r2 = a.writeVar("people." + person + ".known", !!known);
+    if (r1.ok && r2.ok) { return r1; }
+    return r1.ok ? r2 : r1;
+  }
+
+  // NPC 技能（Person.skills = {技能名: 0-100}，键来自 setup.Skills.all_skills()=mainskills+otherskills；
+  // 游戏命令直改 pdata.skills[skill]；这里自发现现有键渲染，容器缺失先建）
+  var SKILL_RANGE_MIN = 0, SKILL_RANGE_MAX = 100;
+  function writeSkill(person, key, raw) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    if (raw === undefined || raw === null) { return { ok: false, reason: "empty" }; }
+    var base = a.readVar("people." + person);
+    if (!base || typeof base !== "object") { return { ok: false, reason: "no-person" }; }
+    if (!base.skills || typeof base.skills !== "object") {
+      var r0 = a.writeVar("people." + person + ".skills", {});
+      if (!r0.ok) { return r0; }
+    }
+    var v = Number(raw);
+    if (!isFinite(v)) { return { ok: false, reason: "nan" }; }
+    if (v < SKILL_RANGE_MIN || v > SKILL_RANGE_MAX) { return { ok: false, reason: "range:0-100" }; }
+    return a.writeVar("people." + person + ".skills." + key, v);
   }
 
   function rowEl(label, value, onSave) {
@@ -211,6 +243,65 @@
       });
       ageRow.appendChild(ageBtn);
       g.appendChild(ageRow);
+      // 性别 + 标签（文本；gender 仅改字段，身体部件/代词不随动）
+      [["gender", "性别（gender）"], ["label", "标签（label）"]].forEach(function (kv) {
+        var row = el("div", "mbce-row");
+        row.appendChild(el("span", "mbce-row-label", kv[1]));
+        var inp = el("input", "mbce-in");
+        inp.type = "text";
+        inp.value = (info && info[kv[0]] !== undefined) ? String(info[kv[0]]) : "";
+        row.appendChild(inp);
+        var btn = el("button", "mbce-btn", "保存");
+        btn.addEventListener("click", function () {
+          var r = writePersonField(p.name, kv[0], inp.value);
+          if (r && r.ok) { inp.value = String(r.to); }
+          else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+        });
+        row.appendChild(btn);
+        g.appendChild(row);
+      });
+      g.appendChild(el("p", "mbce-plain", "注：gender 仅改字段，身体部件/代词/标签在构造时定，不随动。"));
+      // 已知状态（make_known 语义双键）
+      var knownRow = el("div", "mbce-row");
+      var curKnown = !!(info && info.name_known);
+      knownRow.appendChild(el("span", "mbce-row-label", "已知状态（name_known=" + (curKnown ? "true" : "false") + "）"));
+      var kBtn = el("button", "mbce-btn", curKnown ? "标记为未知" : "标记为已知");
+      kBtn.addEventListener("click", function () {
+        var r = markKnown(p.name, !curKnown);
+        if (r && r.ok) {
+          kBtn.textContent = curKnown ? "标记为已知" : "标记为未知";
+          curKnown = !curKnown;
+        } else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+      });
+      knownRow.appendChild(kBtn);
+      g.appendChild(knownRow);
+      // NPC 技能（自发现，折叠默认收起）
+      var sk = el("details");
+      sk.appendChild(el("summary", null, "技能（skills，点击展开）"));
+      var skBody = el("div", "mbce-group");
+      sk.appendChild(skBody);
+      var skData = (info && info.skills && typeof info.skills === "object") ? info.skills : null;
+      var skKeys = skData ? Object.keys(skData) : [];
+      if (skKeys.length === 0) { skBody.appendChild(el("p", "mbce-plain", "（无技能数据）")); }
+      else {
+        skKeys.forEach(function (key) {
+          var row = el("div", "mbce-row");
+          row.appendChild(el("span", "mbce-row-label", key));
+          var inp = el("input", "mbce-in");
+          inp.type = "number";
+          inp.value = String(skData[key]);
+          row.appendChild(inp);
+          var btn = el("button", "mbce-btn", "保存");
+          btn.addEventListener("click", function () {
+            var r = writeSkill(p.name, key, inp.value);
+            if (r && r.ok) { inp.value = String(r.to); }
+            else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+          });
+          row.appendChild(btn);
+          skBody.appendChild(row);
+        });
+      }
+      g.appendChild(sk);
       ATT_TYPES.forEach(function (kv) {
         g.appendChild(rowEl(kv[1] + "（attitude." + kv[0] + "）", att ? att[kv[0]] : undefined, function (raw) { return writeAttitude(p.name, kv[0], raw); }));
       });
@@ -225,6 +316,8 @@
     setCrush: setCrush,
     writeRelationship: writeRelationship,
     writePersonField: writePersonField,
+    markKnown: markKnown,
+    writeSkill: writeSkill,
     relLabel: relLabel,
     render: renderRel,
   };

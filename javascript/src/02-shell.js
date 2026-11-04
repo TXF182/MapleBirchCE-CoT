@@ -16,6 +16,9 @@
   var rootId = CID + "_root";
   var uiLsKey = CID + "_ui";
   var uiTabKey = CID + "_ui_tab"; // 页签记忆（R6）
+  var uiFontKey = CID + "_ui_font"; // 字号设置（R7）
+  var FONTS = ["12px", "13px", "14px", "15px", "16px"];
+  var fontIdx = 2;
 
   var TABS = [
     { id: "char",  label: "角色", render: function (box) { return hookRender("char", box); } },
@@ -155,9 +158,31 @@
     panel.id = panelId;
     var head = el("div", "mbce-head");
     head.appendChild(el("b", null, "MapleBirch CE · CoT"));
+    var fsm = el("span", "mbce-head-fs", "A-");
+    fsm.title = "减小字号";
+    fsm.style.cursor = "pointer";
+    fsm.style.marginLeft = "8px";
+    fsm.addEventListener("click", function () { setFont(-1); });
+    head.appendChild(fsm);
+    var fsadd = el("span", "mbce-head-fs", "A+");
+    fsadd.title = "增大字号";
+    fsadd.style.cursor = "pointer";
+    fsadd.style.marginLeft = "4px";
+    fsadd.addEventListener("click", function () { setFont(1); });
+    head.appendChild(fsadd);
     var badge = el("span", "mbce-badge", "自检…");
     head.appendChild(badge);
     panel.appendChild(head);
+    // 拖拽把手：标题栏
+    head.style.cursor = "move";
+    head.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) { return; }
+      var rect = state.panel.getBoundingClientRect();
+      dragState = { offX: e.clientX - rect.left, offY: e.clientY - rect.top };
+      document.addEventListener("mousemove", onDragMove);
+      document.addEventListener("mouseup", onDragUp);
+      if (e.preventDefault) { e.preventDefault(); }
+    });
 
     var tabs = el("div", "mbce-tabs");
     TABS.forEach(function (t) {
@@ -178,6 +203,11 @@
     var savedTab = "char";
     try { savedTab = localStorage.getItem(uiTabKey) || "char"; } catch (e) {}
     activateTab(savedTab);
+    var savedFont = "2";
+    try { savedFont = localStorage.getItem(uiFontKey) || "2"; } catch (e) {}
+    var fi = parseInt(savedFont, 10);
+    fontIdx = (!isNaN(fi) && fi >= 0 && fi < FONTS.length) ? fi : 2;
+    applyFont();
     var saved = "off";
     try { saved = localStorage.getItem(uiLsKey) || "off"; } catch (e) {}
     if (saved === "on") { toggle(true); }
@@ -203,6 +233,35 @@
     return open;
   }
 
+  // 字号设置（R7）：A-/A+ 循环 12-16px，持久化 mbCE_cot_ui_font
+  function applyFont() {
+    if (!state.panel) { return; }
+    state.panel.style.fontSize = FONTS[fontIdx];
+    try { localStorage.setItem(uiFontKey, String(fontIdx)); } catch (e) {}
+  }
+  function setFont(delta) {
+    var n = fontIdx + delta;
+    if (n < 0 || n >= FONTS.length) { return fontIdx; }
+    fontIdx = n;
+    applyFont();
+    return fontIdx;
+  }
+
+  // 面板拖拽（R7）：按住标题栏拖动，改 left/top（清 right/bottom）
+  var dragState = null;
+  function onDragMove(e) {
+    if (!dragState) { return; }
+    state.panel.style.left = (e.clientX - dragState.offX) + "px";
+    state.panel.style.top = (e.clientY - dragState.offY) + "px";
+    state.panel.style.right = "auto";
+    state.panel.style.bottom = "auto";
+  }
+  function onDragUp() {
+    dragState = null;
+    document.removeEventListener("mousemove", onDragMove);
+    document.removeEventListener("mouseup", onDragUp);
+  }
+
   function init() {
     if (state.inited) { return; }
     try {
@@ -226,6 +285,8 @@
     refresh: updateBadge,
     activateTab: activateTab,
     activeTab: function () { return state.activeTab; },
+    setFont: setFont,
+    fontSize: function () { return FONTS[fontIdx]; },
     statusEl: null,
     tabs: TABS,
   };

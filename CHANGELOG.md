@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [0.6.5] - 2026-11-04
+
+- R7 三项增强：
+  - **更多 Person 字段**：关系页每 NPC 新增性别（gender，文本）与标签（label，文本）编辑（注明 gender 仅改字段，身体部件/代词/标签在构造时定不随动）；**已知状态**切换按钮（`name_known` + `known` 双键同步写，模仿 `setup.people.make_known` 语义）；`M.rel.markKnown`。
+  - **NPC 技能编辑**：每 NPC 技能折叠块（默认收起），按 `V.people[X].skills` 现有键自发现渲染数字行（0-100 校验，容器缺失先建），游戏命令同款直改路径；`M.rel.writeSkill`。
+  - **面板拖拽 + 字号设置**：标题栏可拖动面板（改 left/top）；标题栏 A-/A+ 字号循环 12-16px，持久化 `mbCE_cot_ui_font` 并恢复；`M.shell.setFont/fontSize`。
+- 取证（scan14/14b/14c）：`Person.skills` 键来自 `setup.Skills.all_skills()` = mainskills + otherskills；技能值域 0-100（`skill_level*100`）；`name_known` 构造时由 `is_known` 定，显示真名判定用 `name_known`（双键 `known`）；gender/label 构造时定。
+- 单测扩至 45 项。
+
 ## [0.6.4] - 2026-11-04
 
 - R6 三项增强：

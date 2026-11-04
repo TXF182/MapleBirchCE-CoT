@@ -73,7 +73,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.6.4");
+  assert.strictEqual(M.version, "0.6.5");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -137,7 +137,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.6.4");
+  assert.strictEqual(c.version, "0.6.5");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -149,7 +149,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.6.4");
+  assert.strictEqual(st.version, "0.6.5");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -536,6 +536,84 @@ test("R6: Findr 标签 chip 选择器渲染", () => {
   assert.strictEqual(chips.length, 8, "8 个标签 chip");
   const openChip = chips.filter(c => c.textContent === "Open")[0];
   assert.ok(openChip && openChip.className.indexOf(" on") >= 0, "已选标签高亮");
+});
+
+test("R7: Person 更多字段（gender/label + name_known 双键）", () => {
+  const env = makeEnv(); loadAll(env);
+  const R = env.sandbox.mbCE_cot.rel;
+  env.sandbox.State.variables.people = { "Alice": {} };
+  let r = R.writePersonField("Alice", "gender", "female");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.people.Alice.gender, "female");
+  r = R.writePersonField("Alice", "label", "college girl");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.people.Alice.label, "college girl");
+  r = R.writePersonField("Alice", "gender", "");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "empty");
+  r = R.markKnown("Alice", true);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.people.Alice.name_known, true);
+  assert.strictEqual(env.variables.people.Alice.known, true, "双键同步");
+  r = R.markKnown("Alice", false);
+  assert.strictEqual(env.variables.people.Alice.name_known, false);
+  assert.strictEqual(env.variables.people.Alice.known, false);
+  r = R.markKnown("Nobody", true);
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "no-person");
+});
+
+test("R7: NPC 技能编辑（自发现 + 容器建 + 越界拒绝）", () => {
+  const env = makeEnv(); loadAll(env);
+  const R = env.sandbox.mbCE_cot.rel;
+  env.sandbox.State.variables.people = { "Alice": { skills: { Charisma: 80 } } };
+  let r = R.writeSkill("Alice", "Physical", "40");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.people.Alice.skills.Physical, 40);
+  r = R.writeSkill("Alice", "Intellectual", "200");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "range:0-100");
+  r = R.writeSkill("Alice", "Intellectual", "abc");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "nan");
+  // 容器缺失时先建
+  env.sandbox.State.variables.people = { "Bob": {} };
+  r = R.writeSkill("Bob", "Charisma", "50");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.people.Bob.skills.Charisma, 50);
+  // 渲染：自发现技能键
+  env.sandbox.State.variables.people = { "Alice": { skills: { Charisma: 80, Physical: 20 } } };
+  const box = env.sandbox.document.createElement("div");
+  const ok = env.sandbox.mbCE_cot.data.render("rel", box);
+  assert.strictEqual(ok, true);
+  let skillRows = 0;
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.className === "mbce-row" && c.children.length >= 3 && c.children[2].textContent === "保存") { skillRows++; }
+      walk(c);
+    });
+  })(box);
+  assert.strictEqual(skillRows >= 2, true, "自发现技能行渲染");
+});
+
+test("R7: 面板字号设置（持久化 + 恢复）", () => {
+  const env = makeEnv(); loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  assert.strictEqual(S.fontSize(), "14px", "默认 14px");
+  S.setFont(1);
+  assert.strictEqual(S.fontSize(), "15px");
+  assert.strictEqual(env.sandbox.localStorage.getItem("mbCE_cot_ui_font"), "3");
+  S.setFont(-2);
+  assert.strictEqual(S.fontSize(), "13px");
+  S.setFont(-1);
+  assert.strictEqual(S.fontSize(), "12px", "下限逐档");
+  S.setFont(-5);
+  assert.strictEqual(S.fontSize(), "12px", "下限 clamp 不变");
+  // 恢复：预置 fontIdx=1
+  const env2 = makeEnv();
+  env2.sandbox.localStorage.setItem("mbCE_cot_ui_font", "1");
+  loadAll(env2);
+  assert.strictEqual(env2.sandbox.mbCE_cot.shell.fontSize(), "13px", "恢复上次字号");
 });
 
 let failed = 0;
