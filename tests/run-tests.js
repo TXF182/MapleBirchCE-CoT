@@ -76,7 +76,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.6.8");
+  assert.strictEqual(M.version, "0.6.9");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -140,7 +140,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.6.8");
+  assert.strictEqual(c.version, "0.6.9");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -152,7 +152,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.6.8");
+  assert.strictEqual(st.version, "0.6.9");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -797,6 +797,65 @@ test("R10: 关于页自检详情（模块 stage）", () => {
   })(box);
   assert.ok(diagText.indexOf("模块：core=") >= 0, "显示模块 stage");
   assert.ok(diagText.indexOf("core=ok") >= 0, "stage=ok");
+});
+
+test("R11: $pcskills 一键满值/重置（组级批量）", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  env.sandbox.State.variables.pcskills = { Charisma: 10, Willpower: 20, Hand: 30 };
+  let r = D.applyGroupValue("skills", 100);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.count, 13, "13 键全部写入");
+  assert.strictEqual(env.variables.pcskills.Charisma, 100);
+  // 重置回快照
+  env.sandbox.State.variables.pcskills = { Charisma: 10, Willpower: 20, Hand: 30 };
+  const snap = { Charisma: 10, Willpower: 20, Hand: 30 };
+  r = D.resetGroup("skills", snap);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.pcskills.Charisma, 10);
+  r = D.applyGroupValue("skills", "abc");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "nan");
+  r = D.applyGroupValue("nope", 100);
+  assert.strictEqual(r.ok, false);
+});
+
+test("R11: 关系页全字段查看器", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.people = { "Alice": { nickname: "小A", age: 20 } };
+  const box = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("rel", box);
+  let hasFull = false, hasJson = false;
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.children && c.children.length > 0 && c.children[0].textContent === "查看全部字段（只读 JSON）") {
+        hasFull = true;
+        if (c.children[1] && c.children[1].children && c.children[1].children[0] && c.children[1].children[0].textContent.indexOf('"nickname"') >= 0) { hasJson = true; }
+      }
+      walk(c);
+    });
+  })(box);
+  assert.strictEqual(hasFull, true, "存在全字段查看折叠");
+  assert.strictEqual(hasJson, true, "JSON 含字段");
+});
+
+test("R11: 面板宽度偏好（持久化 + 恢复）", () => {
+  const env = makeEnv(); loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  assert.strictEqual(S.panelWidth(), "340px", "默认 340px");
+  S.setWidth(1);
+  assert.strictEqual(S.panelWidth(), "380px");
+  assert.strictEqual(env.sandbox.localStorage.getItem("mbCE_cot_ui_width"), "2");
+  S.setWidth(-1);
+  assert.strictEqual(S.panelWidth(), "340px");
+  S.setWidth(-1);
+  assert.strictEqual(S.panelWidth(), "300px", "下限逐档");
+  S.setWidth(-5);
+  assert.strictEqual(S.panelWidth(), "300px", "下限 clamp 不变");
+  const env2 = makeEnv();
+  env2.sandbox.localStorage.setItem("mbCE_cot_ui_width", "0");
+  loadAll(env2);
+  assert.strictEqual(env2.sandbox.mbCE_cot.shell.panelWidth(), "300px", "恢复宽度");
 });
 
 let failed = 0;

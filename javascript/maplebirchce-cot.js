@@ -6,7 +6,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.8"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.6.9"; // 双源：boot.json version 必须一致
 
 window.mbCE_cot = {
   version: MCE_VERSION,
@@ -63,8 +63,11 @@ window.mbCE_cot = {
   var uiTabKey = CID + "_ui_tab"; // 页签记忆（R6）
   var uiFontKey = CID + "_ui_font"; // 字号设置（R7）
   var uiPosKey = CID + "_ui_pos"; // 面板位置记忆（R9）
+  var uiWidthKey = CID + "_ui_width"; // 面板宽度偏好（R11）
   var FONTS = ["12px", "13px", "14px", "15px", "16px"];
   var fontIdx = 2;
+  var WIDTHS = ["300px", "340px", "380px"];
+  var widthIdx = 1;
 
   var TABS = [
     { id: "char",  label: "角色", render: function (box) { return hookRender("char", box); } },
@@ -216,6 +219,18 @@ window.mbCE_cot = {
     fsadd.style.marginLeft = "4px";
     fsadd.addEventListener("click", function () { setFont(1); });
     head.appendChild(fsadd);
+    var wsm = el("span", "mbce-head-w", "W-");
+    wsm.title = "面板变窄";
+    wsm.style.cursor = "pointer";
+    wsm.style.marginLeft = "8px";
+    wsm.addEventListener("click", function () { setWidth(-1); });
+    head.appendChild(wsm);
+    var wsadd = el("span", "mbce-head-w", "W+");
+    wsadd.title = "面板变宽";
+    wsadd.style.cursor = "pointer";
+    wsadd.style.marginLeft = "4px";
+    wsadd.addEventListener("click", function () { setWidth(1); });
+    head.appendChild(wsadd);
     var badge = el("span", "mbce-badge", "自检…");
     head.appendChild(badge);
     panel.appendChild(head);
@@ -254,6 +269,11 @@ window.mbCE_cot = {
     var fi = parseInt(savedFont, 10);
     fontIdx = (!isNaN(fi) && fi >= 0 && fi < FONTS.length) ? fi : 2;
     applyFont();
+    var savedWidth = "1";
+    try { savedWidth = localStorage.getItem(uiWidthKey) || "1"; } catch (e) {}
+    var wi = parseInt(savedWidth, 10);
+    widthIdx = (!isNaN(wi) && wi >= 0 && wi < WIDTHS.length) ? wi : 1;
+    applyWidth();
     // 面板位置记忆恢复（R9）
     try {
       var savedPos = localStorage.getItem(uiPosKey);
@@ -306,6 +326,20 @@ window.mbCE_cot = {
     return fontIdx;
   }
 
+  // 面板宽度偏好（R11）：W-/W+ 循环 300/340/380px，持久化 mbCE_cot_ui_width
+  function applyWidth() {
+    if (!state.panel) { return; }
+    state.panel.style.width = WIDTHS[widthIdx];
+    try { localStorage.setItem(uiWidthKey, String(widthIdx)); } catch (e) {}
+  }
+  function setWidth(delta) {
+    var n = widthIdx + delta;
+    if (n < 0 || n >= WIDTHS.length) { return widthIdx; }
+    widthIdx = n;
+    applyWidth();
+    return widthIdx;
+  }
+
   // 面板拖拽（R7）：按住标题栏拖动，改 left/top（清 right/bottom）
   var dragState = null;
   function onDragMove(e) {
@@ -350,6 +384,8 @@ window.mbCE_cot = {
     activeTab: function () { return state.activeTab; },
     setFont: setFont,
     fontSize: function () { return FONTS[fontIdx]; },
+    setWidth: setWidth,
+    panelWidth: function () { return WIDTHS[widthIdx]; },
     statusEl: null,
     tabs: TABS,
   };
@@ -553,6 +589,36 @@ window.mbCE_cot = {
     return base;
   }
 
+  // 组级批量写入（R11）：一键满值 / 重置本组
+  function applyGroupValue(gid, v) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    var g = GROUPS.filter(function (g2) { return g2.id === gid; })[0];
+    if (!g) { return { ok: false, reason: "empty" }; }
+    var n = Number(v);
+    if (!isFinite(n)) { return { ok: false, reason: "nan" }; }
+    var count = 0;
+    g.keys.forEach(function (kv) {
+      var r = a.writeVar(g.path + "." + kv[0], n);
+      if (r.ok) { count++; }
+    });
+    return { ok: count > 0, count: count };
+  }
+  function resetGroup(gid, snapshot) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    var g = GROUPS.filter(function (g2) { return g2.id === gid; })[0];
+    if (!g) { return { ok: false, reason: "empty" }; }
+    var count = 0;
+    g.keys.forEach(function (kv) {
+      var v = (snapshot && snapshot[kv[0]] !== undefined) ? snapshot[kv[0]] : undefined;
+      if (v === undefined) { return; }
+      var r = a.writeVar(g.path + "." + kv[0], v);
+      if (r.ok) { count++; }
+    });
+    return { ok: count > 0, count: count };
+  }
+
   function rowEl(label, value, onSave, key) {
     var wrap = el("div");
     wrap.className = "mbce-row";
@@ -634,6 +700,34 @@ window.mbCE_cot = {
     });
     GROUPS.forEach(function (g) {
       var body = groupBlock(g.label + "（$" + g.path + "）", g.id);
+      if (g.id === "skills") {
+        // $pcskills 一键满值/重置（R11）：满值=写 100，重置=写回本组渲染时快照
+        var skillBase0 = Object.assign({}, readGroup(g.path));
+        var bRow = el("div", "mbce-row");
+        bRow.appendChild(el("span", "mbce-row-label", "批量操作"));
+        var fillBtn = el("button", "mbce-btn", "一键满值（100）");
+        fillBtn.addEventListener("click", function () {
+          var r = applyGroupValue("skills", 100);
+          if (r && r.ok) {
+            var st = M.shell && M.shell.statusEl;
+            if (st) { st.textContent = "技能已设为 100（" + r.count + " 键，$mbCE_wrote 可查）"; }
+          } else {
+            var st2 = M.shell && M.shell.statusEl;
+            if (st2) { st2.textContent = "批量写入失败：" + ((r && r.reason) || "未知") + "（$mbCE_wrote 可查）"; }
+          }
+        });
+        bRow.appendChild(fillBtn);
+        var rstBtn = el("button", "mbce-btn", "重置本组");
+        rstBtn.addEventListener("click", function () {
+          var r = resetGroup("skills", skillBase0);
+          if (r && r.ok) {
+            var st3 = M.shell && M.shell.statusEl;
+            if (st3) { st3.textContent = "技能已重置（" + r.count + " 键，$mbCE_wrote 可查）"; }
+          }
+        });
+        bRow.appendChild(rstBtn);
+        body.appendChild(bRow);
+      }
       var base = readGroup(g.path);
       g.keys.forEach(function (kv) {
         body.appendChild(makeRow(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }, kv[0]));
@@ -729,6 +823,8 @@ window.mbCE_cot = {
     top: TOP,
     applyEdit: applyEdit,
     readGroup: readGroup,
+    applyGroupValue: applyGroupValue,
+    resetGroup: resetGroup,
     discoverPeople: discoverPeople,
     writePcField: writePcField,
     pcFields: PC_FIELDS,
@@ -1152,6 +1248,17 @@ window.mbCE_cot = {
       ATT_TYPES.forEach(function (kv) {
         g.appendChild(rowEl(kv[1] + "（attitude." + kv[0] + "）", att ? att[kv[0]] : undefined, function (raw) { return writeAttitude(p.name, kv[0], raw); }));
       });
+      // 全字段查看器（R11）：只读 JSON 展示 $people[NPC] 全部键
+      var full = el("details");
+      full.appendChild(el("summary", null, "查看全部字段（只读 JSON）"));
+      var fBody = el("div", "mbce-group");
+      full.appendChild(fBody);
+      try {
+        fBody.appendChild(el("p", "mbce-plain", JSON.stringify(info, null, 2)));
+      } catch (e) {
+        fBody.appendChild(el("p", "mbce-plain", "（该 NPC 对象含循环引用/函数，无法 JSON 展示）"));
+      }
+      g.appendChild(full);
       box.appendChild(det);
     });
     return true;

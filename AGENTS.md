@@ -38,6 +38,7 @@
 - 0.6.6 增强（R8，scan15.out.txt）：relationship 字符串赋值仅见 `"best friend"`（其余枚举在 setup.Relationships.db/物品 appeal/findnpc 用），编辑=4 枚举 chip 即时写+自定义文本+清除；`$crush` 纯字符串 NPC 名（无 stage 对象，`V.crush == person` 比较）→ 下拉选择+文本输入；year 赋值样本 1/3（学年制）→ 校验 1-10；major 文本；数值页折叠记忆 `mbCE_cot_ui_stats`（记收起组 gid：top/GROUPS id，默认展开）；关系页每 NPC 折叠块（默认展开）。单测 49 项；mock 元素已支持 getAttribute/setAttribute。
 - 0.6.7 增强（R9）：数值页顶部搜索过滤（输入即时过滤行，行带 data-key）；面板拖拽位置持久化 `mbCE_cot_ui_pos`（{left,top} JSON，恢复清 right/bottom）；关系页 NPC 折叠记忆 `mbCE_cot_ui_rel`（记收起 NPC 名数组）。UI 偏好键全集：`mbCE_cot_ui`(开合) / `_ui_tab`(页签) / `_ui_font`(字号) / `_ui_pos`(位置) / `mbCE_cot_ui_stats`(数值折叠) / `mbCE_cot_ui_rel`(NPC 折叠)。单测 52 项；0.6.7 安装包 zip SHA 29AF3265...A9965。
 - 0.6.8 增强（R10）：角色页 PC 基本信息改为可编辑（pcname/pcnickname/pcgender/pcage/pcmajor/pcspecies 顶层直写，pcage 1-120，`M.data.writePcField`）；关系页 NPC 搜索过滤（data-name）；关于页自检详情（模块 stage/适配器目录+wrote 计数/UI 偏好键）。单测 55 项。
+- 0.6.9 增强（R11）：`$pcskills` 一键满值（13 键写 100）/重置本组（渲染时快照）→ `M.data.applyGroupValue/resetGroup`；关系页每 NPC 全字段只读 JSON 查看器（循环引用/函数时提示）；面板宽度 W-/W+ 300/340/380px 持久化 `mbCE_cot_ui_width`（`M.shell.setWidth/panelWidth`）。UI 偏好键全集 7 个：`mbCE_cot_ui`(开合)/`_ui_tab`(页签)/`_ui_font`(字号)/`_ui_pos`(位置)/`_ui_width`(宽度)/`mbCE_cot_ui_stats`(数值折叠)/`mbCE_cot_ui_rel`(NPC 折叠)。单测 58 项。
 - loader 另有 RemoteLoader 通道（远程 modList.json）；本机 HTTP 缺该文件会产生 SyntaxError 噪音，不影响 LocalStorage/IndexedDB 本地通道。
 - 消费端：`C:\Users\27352\Doubao\chats\2026-11-04\new-chat\cot-game\`；moli：`C:\Users\27352\AppData\Local\moli\moli-v1.1.19-x86_64-pc-windows-msvc\moli.exe`。
 

@@ -413,6 +413,17 @@
       ATT_TYPES.forEach(function (kv) {
         g.appendChild(rowEl(kv[1] + "（attitude." + kv[0] + "）", att ? att[kv[0]] : undefined, function (raw) { return writeAttitude(p.name, kv[0], raw); }));
       });
+      // 全字段查看器（R11）：只读 JSON 展示 $people[NPC] 全部键
+      var full = el("details");
+      full.appendChild(el("summary", null, "查看全部字段（只读 JSON）"));
+      var fBody = el("div", "mbce-group");
+      full.appendChild(fBody);
+      try {
+        fBody.appendChild(el("p", "mbce-plain", JSON.stringify(info, null, 2)));
+      } catch (e) {
+        fBody.appendChild(el("p", "mbce-plain", "（该 NPC 对象含循环引用/函数，无法 JSON 展示）"));
+      }
+      g.appendChild(full);
       box.appendChild(det);
     });
     return true;

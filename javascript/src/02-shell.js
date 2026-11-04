@@ -18,8 +18,11 @@
   var uiTabKey = CID + "_ui_tab"; // 页签记忆（R6）
   var uiFontKey = CID + "_ui_font"; // 字号设置（R7）
   var uiPosKey = CID + "_ui_pos"; // 面板位置记忆（R9）
+  var uiWidthKey = CID + "_ui_width"; // 面板宽度偏好（R11）
   var FONTS = ["12px", "13px", "14px", "15px", "16px"];
   var fontIdx = 2;
+  var WIDTHS = ["300px", "340px", "380px"];
+  var widthIdx = 1;
 
   var TABS = [
     { id: "char",  label: "角色", render: function (box) { return hookRender("char", box); } },
@@ -171,6 +174,18 @@
     fsadd.style.marginLeft = "4px";
     fsadd.addEventListener("click", function () { setFont(1); });
     head.appendChild(fsadd);
+    var wsm = el("span", "mbce-head-w", "W-");
+    wsm.title = "面板变窄";
+    wsm.style.cursor = "pointer";
+    wsm.style.marginLeft = "8px";
+    wsm.addEventListener("click", function () { setWidth(-1); });
+    head.appendChild(wsm);
+    var wsadd = el("span", "mbce-head-w", "W+");
+    wsadd.title = "面板变宽";
+    wsadd.style.cursor = "pointer";
+    wsadd.style.marginLeft = "4px";
+    wsadd.addEventListener("click", function () { setWidth(1); });
+    head.appendChild(wsadd);
     var badge = el("span", "mbce-badge", "自检…");
     head.appendChild(badge);
     panel.appendChild(head);
@@ -209,6 +224,11 @@
     var fi = parseInt(savedFont, 10);
     fontIdx = (!isNaN(fi) && fi >= 0 && fi < FONTS.length) ? fi : 2;
     applyFont();
+    var savedWidth = "1";
+    try { savedWidth = localStorage.getItem(uiWidthKey) || "1"; } catch (e) {}
+    var wi = parseInt(savedWidth, 10);
+    widthIdx = (!isNaN(wi) && wi >= 0 && wi < WIDTHS.length) ? wi : 1;
+    applyWidth();
     // 面板位置记忆恢复（R9）
     try {
       var savedPos = localStorage.getItem(uiPosKey);
@@ -261,6 +281,20 @@
     return fontIdx;
   }
 
+  // 面板宽度偏好（R11）：W-/W+ 循环 300/340/380px，持久化 mbCE_cot_ui_width
+  function applyWidth() {
+    if (!state.panel) { return; }
+    state.panel.style.width = WIDTHS[widthIdx];
+    try { localStorage.setItem(uiWidthKey, String(widthIdx)); } catch (e) {}
+  }
+  function setWidth(delta) {
+    var n = widthIdx + delta;
+    if (n < 0 || n >= WIDTHS.length) { return widthIdx; }
+    widthIdx = n;
+    applyWidth();
+    return widthIdx;
+  }
+
   // 面板拖拽（R7）：按住标题栏拖动，改 left/top（清 right/bottom）
   var dragState = null;
   function onDragMove(e) {
@@ -305,6 +339,8 @@
     activeTab: function () { return state.activeTab; },
     setFont: setFont,
     fontSize: function () { return FONTS[fontIdx]; },
+    setWidth: setWidth,
+    panelWidth: function () { return WIDTHS[widthIdx]; },
     statusEl: null,
     tabs: TABS,
   };

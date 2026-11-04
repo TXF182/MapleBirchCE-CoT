@@ -76,6 +76,36 @@
     return base;
   }
 
+  // 组级批量写入（R11）：一键满值 / 重置本组
+  function applyGroupValue(gid, v) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    var g = GROUPS.filter(function (g2) { return g2.id === gid; })[0];
+    if (!g) { return { ok: false, reason: "empty" }; }
+    var n = Number(v);
+    if (!isFinite(n)) { return { ok: false, reason: "nan" }; }
+    var count = 0;
+    g.keys.forEach(function (kv) {
+      var r = a.writeVar(g.path + "." + kv[0], n);
+      if (r.ok) { count++; }
+    });
+    return { ok: count > 0, count: count };
+  }
+  function resetGroup(gid, snapshot) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    var g = GROUPS.filter(function (g2) { return g2.id === gid; })[0];
+    if (!g) { return { ok: false, reason: "empty" }; }
+    var count = 0;
+    g.keys.forEach(function (kv) {
+      var v = (snapshot && snapshot[kv[0]] !== undefined) ? snapshot[kv[0]] : undefined;
+      if (v === undefined) { return; }
+      var r = a.writeVar(g.path + "." + kv[0], v);
+      if (r.ok) { count++; }
+    });
+    return { ok: count > 0, count: count };
+  }
+
   function rowEl(label, value, onSave, key) {
     var wrap = el("div");
     wrap.className = "mbce-row";
@@ -157,6 +187,34 @@
     });
     GROUPS.forEach(function (g) {
       var body = groupBlock(g.label + "（$" + g.path + "）", g.id);
+      if (g.id === "skills") {
+        // $pcskills 一键满值/重置（R11）：满值=写 100，重置=写回本组渲染时快照
+        var skillBase0 = Object.assign({}, readGroup(g.path));
+        var bRow = el("div", "mbce-row");
+        bRow.appendChild(el("span", "mbce-row-label", "批量操作"));
+        var fillBtn = el("button", "mbce-btn", "一键满值（100）");
+        fillBtn.addEventListener("click", function () {
+          var r = applyGroupValue("skills", 100);
+          if (r && r.ok) {
+            var st = M.shell && M.shell.statusEl;
+            if (st) { st.textContent = "技能已设为 100（" + r.count + " 键，$mbCE_wrote 可查）"; }
+          } else {
+            var st2 = M.shell && M.shell.statusEl;
+            if (st2) { st2.textContent = "批量写入失败：" + ((r && r.reason) || "未知") + "（$mbCE_wrote 可查）"; }
+          }
+        });
+        bRow.appendChild(fillBtn);
+        var rstBtn = el("button", "mbce-btn", "重置本组");
+        rstBtn.addEventListener("click", function () {
+          var r = resetGroup("skills", skillBase0);
+          if (r && r.ok) {
+            var st3 = M.shell && M.shell.statusEl;
+            if (st3) { st3.textContent = "技能已重置（" + r.count + " 键，$mbCE_wrote 可查）"; }
+          }
+        });
+        bRow.appendChild(rstBtn);
+        body.appendChild(bRow);
+      }
       var base = readGroup(g.path);
       g.keys.forEach(function (kv) {
         body.appendChild(makeRow(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }, kv[0]));
@@ -252,6 +310,8 @@
     top: TOP,
     applyEdit: applyEdit,
     readGroup: readGroup,
+    applyGroupValue: applyGroupValue,
+    resetGroup: resetGroup,
     discoverPeople: discoverPeople,
     writePcField: writePcField,
     pcFields: PC_FIELDS,
