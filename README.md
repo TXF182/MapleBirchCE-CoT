@@ -1,13 +1,14 @@
 # MapleBirchCE-CoT · CoT 全局调试面板（移植项目）
 
 > 将 DoL 版 MapleBirchCE（v1.9.27）移植到 Course of Temptation（CoT 0.8.2i）。
-> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 6 完成（回归与发布就绪），当前版本 0.6.10**。发布待命：D4 先不发，需用户明确指令。
+> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 6 完成（回归与发布就绪），当前版本 0.6.10**。
 
-## 发布准备（D4 待命）
+## 发布（2026-11-04，用户明确指令后执行）
 
-- **安装包**：`MapleBirchCE-CoT-0.6.10.mod.zip`（仓库根，ZIP SHA256 `BC81670CDFC333811BFB73778889E041BD50E5E1E773BA0FF0D0B59F94A63C7D`；结构 = boot.json 根 + README.md + javascript/ + twee/，内部 js SHA 与构建产物一致，核验见 `.selfcheck/zip-build-0610.txt`）。
-- **实机冒烟（D6，非默认门禁）**：按需执行——游戏内 Mod 管理器加载 zip → 刷新 → 右下金色悬浮球。
-- **实际发布**：未执行（D4 先不发）；发布需用户明确指令（GitHub Release 等对外渠道）。
+- **GitHub 仓库**（新开，独立于 DoL 版 `TXF182/MapleBirchCE`）：https://github.com/TXF182/MapleBirchCE-CoT
+- **Release v0.6.10**：https://github.com/TXF182/MapleBirchCE-CoT/releases/tag/v0.6.10
+- **安装包资产**：`MapleBirchCE-CoT-0.6.10.mod.zip`（22722 B，SHA256 `BC81670CDFC333811BFB73778889E041BD50E5E1E773BA0FF0D0B59F94A63C7D`）→ https://github.com/TXF182/MapleBirchCE-CoT/releases/download/v0.6.10/MapleBirchCE-CoT-0.6.10.mod.zip
+- 实机冒烟（D6）：非默认门禁，按需执行——游戏内 Mod 管理器加载 zip → 刷新 → 右下金色悬浮球。
 
 ## 阶段进度（移植方案 7 阶段）
 
