@@ -6,9 +6,9 @@ $ErrorActionPreference = "Stop"
 $repo = $PSScriptRoot   # dev.ps1 位于仓库根
 
 Write-Host "== [1/3] 语法检查（node --check） =="
-foreach ($f in @("01-core.js", "02-shell.js", "03-cot-adapter.js")) {
-    node --check (Join-Path $repo "javascript\src\$f")
-    Write-Host "  OK $f"
+Get-ChildItem -LiteralPath (Join-Path $repo "javascript\src") -Filter "*.js" | Sort-Object Name | ForEach-Object {
+    node --check $_.FullName
+    Write-Host "  OK $($_.Name)"
 }
 
 Write-Host "== [2/3] 单元测试（node tests\run-tests.js） =="

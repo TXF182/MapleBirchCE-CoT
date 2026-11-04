@@ -4,6 +4,7 @@
 
 - P5 CoT 生态适配：`07-p5-eco.js` 运行时生态检测（modI18N / ModUtils / modSC2DataManager / setup.mbStageCE 自检）、about 页生态块（依赖声明 + 官方内置 16 mod 清单 + 使用说明）、I18n 钩子 `M.i18n`（原文直通，接 i18n.json 留待后续）。
 - 单测扩至 33 项。
+- P6 回归与发布就绪：全量验证 7 源 `node --check` + 单测 33/33 + pack verifier 4/4 + 产物 SHA256 `651312F8A6C9C358B5A3A2423B8B23F4170A051AAF34701E1272D2388B68EE6F`；模块接入核验通过；`dev.ps1` 语法检查从硬编码 3 文件改为动态扫描全部 `src/*.js`（回归修复）。**发布待命（D4：无用户指令不发布）。**
 
 ## [0.5.0] - 2026-11-04
 
