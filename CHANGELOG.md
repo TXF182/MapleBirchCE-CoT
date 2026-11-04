@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [0.6.0] - 2026-11-04
+
+- P5 CoT 生态适配：`07-p5-eco.js` 运行时生态检测（modI18N / ModUtils / modSC2DataManager / setup.mbStageCE 自检）、about 页生态块（依赖声明 + 官方内置 16 mod 清单 + 使用说明）、I18n 钩子 `M.i18n`（原文直通，接 i18n.json 留待后续）。
+- 单测扩至 33 项。
+
 ## [0.5.0] - 2026-11-04
 
 - P4 场景/地点页：`06-p4-places.js` 地点跳转（`$location`=passage 名，13 个已知地点 + 自定义）、`$peopleatlocation` 在场人物、`$weather` 只读、`$preencountertags` 清空、`$lastloc/$lastloctags`、Findr 只读；时间键补全日/月/年/游戏日/游戏年（含范围校验，月为索引 0=Autumber）。写入走 adapter 留痕。

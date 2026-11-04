@@ -22,7 +22,7 @@
     { id: "rel",   label: "关系", render: function (box) { return hookRender("rel", box); } },
     { id: "place", label: "地点", render: function (box) { return hookRender("place", box); } },
     { id: "scene", label: "场景", render: function (box) { return hookRender("scene", box); } },
-    { id: "about", label: "关于" },
+    { id: "about", label: "关于", render: function (box) { return hookRender("about", box); } },
   ];
 
   function hookRender(tabId, box) {

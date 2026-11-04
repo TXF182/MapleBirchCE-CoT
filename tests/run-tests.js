@@ -13,7 +13,7 @@ const vm = require("vm");
 const assert = require("assert");
 
 const SRC = path.join(__dirname, "..", "javascript", "src");
-const ORDER = ["01-core.js", "02-shell.js", "03-cot-adapter.js", "04-p2-data.js", "05-p3-relations.js", "06-p4-places.js"];
+const ORDER = ["01-core.js", "02-shell.js", "03-cot-adapter.js", "04-p2-data.js", "05-p3-relations.js", "06-p4-places.js", "07-p5-eco.js"];
 
 function makeEl() {
   const children = [];
@@ -72,7 +72,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.5.0");
+  assert.strictEqual(M.version, "0.6.0");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -136,7 +136,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.5.0");
+  assert.strictEqual(c.version, "0.6.0");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -148,7 +148,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.5.0");
+  assert.strictEqual(st.version, "0.6.0");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -244,7 +244,7 @@ test("P2: render 路由（stats/char 处理，about 交给 shell）", () => {
   const box = env.sandbox.document.createElement("div");
   assert.strictEqual(D.render("stats", box), true);
   assert.strictEqual(D.render("char", box), true);
-  assert.strictEqual(D.render("about", box), false);
+  assert.strictEqual(D.render("nope", box), false);
 });
 
 test("shell: P2 页签走 data 渲染钩子", () => {
@@ -300,7 +300,7 @@ test("P3: render 路由（rel 由 P3 处理，char 仍走 P2）", () => {
   const box = env.sandbox.document.createElement("div");
   assert.strictEqual(env.sandbox.mbCE_cot.data.render("rel", box), true);
   assert.strictEqual(env.sandbox.mbCE_cot.data.render("char", box), true);
-  assert.strictEqual(env.sandbox.mbCE_cot.data.render("about", box), false);
+  assert.strictEqual(env.sandbox.mbCE_cot.data.render("nope", box), false);
 });
 
 test("shell: P3 关系页签走 data 渲染钩子", () => {
@@ -355,7 +355,7 @@ test("P4: render 路由（place/scene 由 P4 处理，rel 仍 P3）", () => {
   assert.strictEqual(env.sandbox.mbCE_cot.data.render("place", box), true);
   assert.strictEqual(env.sandbox.mbCE_cot.data.render("scene", box), true);
   assert.strictEqual(env.sandbox.mbCE_cot.data.render("rel", box), true);
-  assert.strictEqual(env.sandbox.mbCE_cot.data.render("about", box), false);
+  assert.strictEqual(env.sandbox.mbCE_cot.data.render("nope", box), false);
 });
 
 test("shell: P4 页签走 data 渲染钩子", () => {
@@ -364,6 +364,51 @@ test("shell: P4 页签走 data 渲染钩子", () => {
   const box = env.sandbox.document.createElement("div");
   assert.strictEqual(S.tabs.filter(t => t.id === "place")[0].render(box), true);
   assert.strictEqual(S.tabs.filter(t => t.id === "scene")[0].render(box), true);
+});
+
+test("P5: 生态检测（默认无 modI18N/modUtils）", () => {
+  const env = makeEnv(); loadAll(env);
+  const E = env.sandbox.mbCE_cot.eco;
+  const d = E.detect();
+  assert.strictEqual(d.i18n, false);
+  assert.strictEqual(d.modUtils, null);
+  assert.strictEqual(d.sc2dm, false);
+  assert.strictEqual(d.self, "ok", "自检键就位");
+});
+
+test("P5: 生态检测（有 modI18N/modUtils）", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.modI18N = {};
+  env.sandbox.modUtils = { version: "2.101.1" };
+  env.sandbox.modSC2DataManager = {};
+  const d = env.sandbox.mbCE_cot.eco.detect();
+  assert.strictEqual(d.i18n, true);
+  assert.strictEqual(d.modUtils, "2.101.1");
+  assert.strictEqual(d.sc2dm, true);
+});
+
+test("P5: I18n 钩子原文直通 + 官方 mod 清单", () => {
+  const env = makeEnv(); loadAll(env);
+  const E = env.sandbox.mbCE_cot.eco;
+  assert.strictEqual(E.i18n.t("key", "回退文案"), "回退文案");
+  assert.strictEqual(E.i18n.t("key"), "key");
+  assert.strictEqual(E.officialMods.length, 16);
+  assert.ok(E.officialMods.includes("CheckGameVersionCot"));
+});
+
+test("P5: about 页由 P5 渲染，其余路由不变", () => {
+  const env = makeEnv(); loadAll(env);
+  const box = env.sandbox.document.createElement("div");
+  assert.strictEqual(env.sandbox.mbCE_cot.data.render("about", box), true);
+  assert.strictEqual(env.sandbox.mbCE_cot.data.render("rel", box), true);
+  assert.strictEqual(env.sandbox.mbCE_cot.data.render("scene", box), true);
+});
+
+test("shell: P5 关于页签走 data 渲染钩子", () => {
+  const env = makeEnv(); loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  const box = env.sandbox.document.createElement("div");
+  assert.strictEqual(S.tabs.filter(t => t.id === "about")[0].render(box), true);
 });
 
 let failed = 0;

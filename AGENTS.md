@@ -28,6 +28,8 @@
 - P3 产物：`javascript/src/05-p3-relations.js`（attitude 三轴编辑 + $crush + relationship/partner 只读展示）；版本 0.4.0。
 - P4 地点/场景键模型（取证）：`$location` = **Twine passage 名**（`loc:XXX` tag → `$location = tags()[_i].substring(3)`；`people_at_location` 用 `Story.get(HousingRoom|loc).tags` 解析）；已知地点 = Campus/BlodgettGym/ChamberlainHall/EmersonBuilding/HallowellBuilding/SmithLibrary/SummitMarket/ThoreauBuilding/BangCoffee/HousingRoom/YourDorm/NutmegSt/RiverRat；`$previouslocation`、`$locationblock`（区域）；`$peopleatlocation` = NPC 名数组（`setup.people_at_location(loc, locationblock)` 计算，`V.optnpcroomcap||200` 上限）；`$weather` = `setup.Weather.state()` 对象（`todaysWeather/yesterdaysWeather`，非字符串）；`$preencountertags` = 场景标签数组（遭遇结束 `State.setVar("$preencountertags", [])` 重置）；`$lastloc/$lastloctags`（地点标签数组，含 `job:` 前缀标签）；`setup.Findr` = 约会软件（username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match）。
 - P4 产物：`javascript/src/06-p4-places.js`（地点跳转 + 天气/在场人物/场景标签/Findr 只读；时间键补全日/月/年/游戏日/游戏年）；版本 0.5.0。
+- P5 生态：`javascript/src/07-p5-eco.js` 运行时生态检测（modI18N/ModUtils/modSC2DataManager/setup.mbStageCE）+ about 页生态块 + `M.i18n` 钩子（原文直通，接 i18n.json 留待后续）；官方内置 16 mod 清单；版本 0.6.0。至此六页全部由 data 渲染接管（char/stats/rel/place/scene/about）。
+- 测试纪律补充：vm 沙箱内创建的对象（数组等）跨 realm 原型不同，`assert.deepStrictEqual` 会误报「same structure but not reference-equal」——跨 realm 值改用语义断言（Array.isArray + length / 标量 ===）；render 路由测试的「未接管页」用不存在的 tab（`nope`）断言 fallback。
 - loader 另有 RemoteLoader 通道（远程 modList.json）；本机 HTTP 缺该文件会产生 SyntaxError 噪音，不影响 LocalStorage/IndexedDB 本地通道。
 - 消费端：`C:\Users\27352\Doubao\chats\2026-11-04\new-chat\cot-game\`；moli：`C:\Users\27352\AppData\Local\moli\moli-v1.1.19-x86_64-pc-windows-msvc\moli.exe`。
 
