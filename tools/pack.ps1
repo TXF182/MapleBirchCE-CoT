@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot   # tools\.. -> 仓库根
 $src = Join-Path $repo "javascript\src"
 $out = Join-Path $repo "javascript\maplebirchce-cot.js"
-$order = @("01-core.js", "02-shell.js", "03-cot-adapter.js")
+$order = @("01-core.js", "02-shell.js", "03-cot-adapter.js", "04-p2-data.js")
 
 $bootRaw = Get-Content -Raw -LiteralPath (Join-Path $repo "boot.json")
 $boot = $bootRaw | ConvertFrom-Json

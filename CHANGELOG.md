@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [0.3.0] - 2026-11-04
+
+- P2 数值/角色页：`04-p2-data.js` 键映射表（`$pcskills` 13 键 / `$pcstats` 7 键 / `$pcneeds` 13 键（1000 满值）/ `$pcmoney` / `$pcinclinations`），数值页（金钱 + 技能/身体/需求编辑）、角色页（PC 信息 + `$people` 自发现）、时间调节（`$hour/$minute` 0-23/0-59 校验）。写入全部走 adapter 留痕 `$mbCE_wrote`。
+- shell 增加页签 render 钩子与 `.mbce-row/.mbce-in/.mbce-btn` 样式；单测扩至 18 项。
+
 ## [0.2.0] - 2026-11-04
 
 - P1 CE 骨架：01-core（mbCE_cot 运行时根 + stage 自检状态机）、02-shell（金色悬浮球 + 六页占位面板壳 + 说明折叠 + 状态栏 + 自检徽标）、03-cot-adapter（CoT 键安全读写 + `$mbCE_wrote` 留痕 + `setup.mbStageCE` 自检键）。

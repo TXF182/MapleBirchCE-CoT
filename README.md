@@ -1,7 +1,7 @@
 # MapleBirchCE-CoT · CoT 全局调试面板（移植项目）
 
 > 将 DoL 版 MapleBirchCE（v1.9.27）移植到 Course of Temptation（CoT 0.8.2i）。
-> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 1 完成（CE 骨架：最小可加载 mod + 悬浮球/面板壳 + CoT 键适配层）**。
+> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 2 完成（数值/角色页：键映射表 + 编辑写入 + 时间调节 + `$people` 自发现）**。
 
 ## 决策记录（2026-11-04 用户拍板）
 

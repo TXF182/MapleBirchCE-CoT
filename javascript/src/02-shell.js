@@ -17,13 +17,22 @@
   var uiLsKey = CID + "_ui";
 
   var TABS = [
-    { id: "char",  label: "角色" },
-    { id: "stats", label: "数值" },
+    { id: "char",  label: "角色", render: function (box) { return hookRender("char", box); } },
+    { id: "stats", label: "数值", render: function (box) { return hookRender("stats", box); } },
     { id: "rel",   label: "关系" },
     { id: "place", label: "地点" },
     { id: "scene", label: "场景" },
     { id: "about", label: "关于" },
   ];
+
+  function hookRender(tabId, box) {
+    var d = window.mbCE_cot && window.mbCE_cot.data;
+    if (d && typeof d.render === "function") {
+      var r = d.render(tabId, box);
+      if (r !== false) { return true; }
+    }
+    return false;
+  }
 
   var state = { fab: null, panel: null, content: null, badge: null, status: null, activeTab: "char", inited: false };
 
@@ -59,6 +68,12 @@
       "#" + panelId + " .mbce-fold summary { cursor: pointer; color: #8a6d1f; font-size: 12px; }",
       "#" + panelId + " .mbce-fold p { margin: 6px 0 0; font-size: 12px; color: #5c4a20; }",
       "#" + panelId + " .mbce-plain { color: #7a6a3c; font-size: 13px; }",
+      "#" + panelId + " .mbce-group { margin: 7px 0; }",
+      "#" + panelId + " .mbce-group b { color: #6b4f1a; }",
+      "#" + panelId + " .mbce-row { display: flex; align-items: center; gap: 6px; margin: 3px 0; }",
+      "#" + panelId + " .mbce-row-label { flex: 1 1 auto; font-size: 12px; color: #5c4a20; }",
+      "#" + panelId + " .mbce-in { width: 84px; padding: 2px 6px; border: 1px solid #d9c27a; border-radius: 4px; background: #fff; color: #3a2c10; }",
+      "#" + panelId + " .mbce-btn { padding: 2px 10px; border: 1px solid #c9a227; background: #f5d76e; color: #5a4300; border-radius: 4px; cursor: pointer; }",
     ].join("\n");
     var el = document.createElement("style");
     el.id = cssId;
@@ -76,7 +91,11 @@
   function renderContent(tabId) {
     var box = state.content;
     if (!box) { return; }
+    var tab = TABS.filter(function (t) { return t.id === tabId; })[0];
     box.innerHTML = "";
+    if (tab && typeof tab.render === "function") {
+      if (tab.render(box)) { return; }
+    }
     if (tabId === "about") {
       box.appendChild(el("p", "mbce-plain", "MapleBirch CE · CoT 全局调试面板（骨架版）"));
       var fold = el("details", "mbce-fold");
@@ -174,6 +193,7 @@
       injectCss();
       buildFab();
       buildPanel();
+      M.shell.statusEl = state.status;
       M.stage.shell = "ok";
     } catch (e) {
       M.stage.shell = "error";
@@ -188,6 +208,7 @@
     init: init,
     open: toggle,
     refresh: updateBadge,
+    statusEl: null,
     tabs: TABS,
   };
 

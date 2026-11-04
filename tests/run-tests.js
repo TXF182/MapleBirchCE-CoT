@@ -13,7 +13,7 @@ const vm = require("vm");
 const assert = require("assert");
 
 const SRC = path.join(__dirname, "..", "javascript", "src");
-const ORDER = ["01-core.js", "02-shell.js", "03-cot-adapter.js"];
+const ORDER = ["01-core.js", "02-shell.js", "03-cot-adapter.js", "04-p2-data.js"];
 
 function makeEl() {
   const children = [];
@@ -72,7 +72,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.2.0");
+  assert.strictEqual(M.version, "0.3.0");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -136,7 +136,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.2.0");
+  assert.strictEqual(c.version, "0.3.0");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -148,7 +148,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.2.0");
+  assert.strictEqual(st.version, "0.3.0");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -177,6 +177,83 @@ test("shell: init 防重入", () => {
   const before = env.bodyChildren.length;
   S.init(); S.init();
   assert.strictEqual(env.bodyChildren.length, before);
+});
+
+test("P2: 键映射表存在（三组 + 顶层）", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  assert.ok(D, "M.data 存在");
+  assert.strictEqual(D.groups.length, 3);
+  assert.strictEqual(D.groups[0].id, "skills");
+  assert.strictEqual(D.groups[0].path, "pcskills");
+  assert.ok(D.groups[0].keys.some(kv => kv[0] === "Charisma"), "技能含 Charisma");
+  assert.ok(D.top.money && D.top.hour && D.top.minute, "顶层含 money/hour/minute");
+});
+
+test("P2: 技能写入回读 + 留痕", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  env.variables.pcskills = { Charisma: 100 };
+  const r = D.applyEdit("skills", "Charisma", "250");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.pcskills.Charisma, 250);
+  assert.strictEqual(env.variables.mbCE_wrote.length, 1);
+  assert.strictEqual(env.variables.mbCE_wrote[0].k, "pcskills.Charisma");
+});
+
+test("P2: 时间越界拒绝（hour 25 / minute 61）", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  env.variables.hour = 8; env.variables.minute = 0;
+  const r1 = D.applyEdit("hour", null, "25");
+  assert.strictEqual(r1.ok, false);
+  assert.ok(r1.reason.indexOf("range") === 0, "reason=" + r1.reason);
+  assert.strictEqual(env.variables.hour, 8);
+  const r2 = D.applyEdit("minute", null, "61");
+  assert.strictEqual(r2.ok, false);
+  assert.strictEqual(env.variables.minute, 0);
+});
+
+test("P2: 非数字拒绝 + 顶层金钱写入", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  env.variables.pcmoney = 500;
+  const r1 = D.applyEdit("money", null, "abc");
+  assert.strictEqual(r1.ok, false);
+  assert.strictEqual(r1.reason, "nan");
+  assert.strictEqual(env.variables.pcmoney, 500);
+  const r2 = D.applyEdit("money", null, "999");
+  assert.strictEqual(r2.ok, true);
+  assert.strictEqual(env.variables.pcmoney, 999);
+});
+
+test("P2: $people 自发现（角色页数据源）", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  env.variables.people = { Bob: { relationship: "friend", special: true }, Amy: { relationship: "best friend" } };
+  const list = D.discoverPeople();
+  assert.strictEqual(list.length, 2);
+  assert.strictEqual(list[0].name, "Amy");
+  assert.strictEqual(list[1].relationship, "friend");
+  assert.strictEqual(list[1].special, true);
+});
+
+test("P2: render 路由（stats/char 处理，rel 交给 shell）", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  const box = env.sandbox.document.createElement("div");
+  assert.strictEqual(D.render("stats", box), true);
+  assert.strictEqual(D.render("char", box), true);
+  assert.strictEqual(D.render("rel", box), false);
+});
+
+test("shell: P2 页签走 data 渲染钩子", () => {
+  const env = makeEnv(); loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  const box = env.sandbox.document.createElement("div");
+  const tab = S.tabs.filter(t => t.id === "char")[0];
+  const r = tab.render(box);
+  assert.strictEqual(r, true, "char 页签由 data 渲染");
 });
 
 let failed = 0;
