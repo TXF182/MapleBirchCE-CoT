@@ -52,6 +52,21 @@
     g.appendChild(el("p", "mbce-plain", "运行版本：MapleBirchCE-CoT " + M.version + " · 目标 CoT " + M.targetGameVersion));
     box.appendChild(g);
 
+    // 自检详情（R10）：模块 stage + 适配器目录 + UI 偏好键
+    var diag = el("div", "mbce-group");
+    diag.appendChild(el("b", null, "自检详情"));
+    var st = M.stage || {};
+    diag.appendChild(el("p", "mbce-plain", "模块：core=" + st.core + " · adapter=" + st.adapter + " · shell=" + st.shell));
+    try {
+      var chk = M.adapter && typeof M.adapter.check === "function" ? M.adapter.check() : null;
+      if (chk) { diag.appendChild(el("p", "mbce-plain", "适配器：目录 " + (chk.catalog ? Object.keys(chk.catalog).length : 0) + " 键 · 留痕 $mbCE_wrote=" + (chk.wroteCount !== undefined ? chk.wroteCount : "?") + " 次")); }
+    } catch (e) {}
+    try {
+      var keys = ["mbCE_cot_ui", "mbCE_cot_ui_tab", "mbCE_cot_ui_font", "mbCE_cot_ui_pos", "mbCE_cot_ui_stats", "mbCE_cot_ui_rel"];
+      diag.appendChild(el("p", "mbce-plain", "UI 偏好：" + keys.filter(function (k) { return localStorage.getItem(k) !== null; }).join(" / ") || "（无）"));
+    } catch (e) {}
+    box.appendChild(diag);
+
     var dep = el("div", "mbce-group");
     dep.appendChild(el("b", null, "依赖声明（boot.json）"));
     DEPS.forEach(function (x) { dep.appendChild(el("p", "mbce-plain", x.modName + " " + x.version)); });

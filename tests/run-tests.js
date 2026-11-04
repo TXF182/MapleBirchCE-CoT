@@ -76,7 +76,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.6.7");
+  assert.strictEqual(M.version, "0.6.8");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -140,7 +140,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.6.7");
+  assert.strictEqual(c.version, "0.6.8");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -152,7 +152,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.6.7");
+  assert.strictEqual(st.version, "0.6.8");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -736,6 +736,67 @@ test("R9: 关系页 NPC 折叠记忆（恢复）", () => {
   })(box);
   assert.ok(aliceDet && !aliceDet.open, "记忆的收起 NPC 默认收起");
   assert.ok(bobDet && bobDet.open, "未收起 NPC 默认展开");
+});
+
+test("R10: PC 字段编辑（writePcField）", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  let r = D.writePcField("pcname", " 唐兴富 ");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.pcname, "唐兴富", "文本 trim");
+  r = D.writePcField("pcage", "22");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.pcage, 22);
+  r = D.writePcField("pcage", "200");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "range:1-120");
+  r = D.writePcField("pcmajor", "  ");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "empty");
+});
+
+test("R10: 角色页可编辑行 + 关系页 NPC 搜索框", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.people = { "Alice": {} };
+  const box = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("char", box);
+  let pcRows = 0;
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.className === "mbce-row" && c.children.length === 3 && c.children[2].textContent === "保存") { pcRows++; }
+      walk(c);
+    });
+  })(box);
+  assert.strictEqual(pcRows, 6, "PC 六字段可编辑行");
+  const box2 = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("rel", box2);
+  let hasFilter = false;
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.className === "mbce-row" && c.children.length === 2 && c.children[1].type === "text" && c.children[0].textContent === "过滤 NPC") { hasFilter = true; }
+      if (c.getAttribute && c.getAttribute("data-name") === "Alice") { hasFilter = hasFilter; }
+      walk(c);
+    });
+  })(box2);
+  assert.strictEqual(hasFilter, true, "关系页 NPC 搜索框存在");
+});
+
+test("R10: 关于页自检详情（模块 stage）", () => {
+  const env = makeEnv(); loadAll(env);
+  const box = env.sandbox.document.createElement("div");
+  const ok = env.sandbox.mbCE_cot.data.render("about", box);
+  assert.strictEqual(ok, true);
+  let diagText = "";
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.children && c.children.length > 0 && c.children[0].textContent === "自检详情") {
+        diagText = c.children.map(x => x.textContent || "").join(" | ");
+      }
+      walk(c);
+    });
+  })(box);
+  assert.ok(diagText.indexOf("模块：core=") >= 0, "显示模块 stage");
+  assert.ok(diagText.indexOf("core=ok") >= 0, "stage=ok");
 });
 
 let failed = 0;

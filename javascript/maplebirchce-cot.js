@@ -6,7 +6,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.7"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.6.8"; // 双源：boot.json version 必须一致
 
 window.mbCE_cot = {
   version: MCE_VERSION,
@@ -642,15 +642,52 @@ window.mbCE_cot = {
     return true;
   }
 
+  // PC 字段编辑（R10）：顶层 $ 变量直写；pcage 1-120，其余文本 trim 非空
+  var PC_FIELDS = [["pcname", "姓名", "text"], ["pcnickname", "昵称", "text"], ["pcgender", "性别", "text"], ["pcage", "年龄", "number"], ["pcmajor", "专业", "text"], ["pcspecies", "种族", "text"]];
+  function writePcField(field, raw) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    if (raw === undefined || raw === null) { return { ok: false, reason: "empty" }; }
+    if (field === "pcage") {
+      var n = Number(raw);
+      if (!isFinite(n)) { return { ok: false, reason: "nan" }; }
+      if (n < 1 || n > 120) { return { ok: false, reason: "range:1-120" }; }
+      return a.writeVar("pcage", n);
+    }
+    var v = String(raw).trim();
+    if (!v) { return { ok: false, reason: "empty" }; }
+    return a.writeVar(field, v);
+  }
+
   function renderChar(box) {
     var a = adapter();
     if (!a) { box.appendChild(el("p", "mbce-plain", "适配层未就绪")); return true; }
     var pc = el("div", "mbce-group");
-    pc.appendChild(el("b", null, "PC 基本信息"));
-    [["pcname", "姓名"], ["pcnickname", "昵称"], ["pcgender", "性别"], ["pcage", "年龄"], ["pcmajor", "专业"], ["pcspecies", "种族"]].forEach(function (kv) {
-      var v = a.readVar(kv[0]);
-      pc.appendChild(el("p", "mbce-plain", kv[1] + "：" + (v === undefined ? "（未初始化）" : String(v))));
+    pc.appendChild(el("b", null, "PC 基本信息（可编辑）"));
+    PC_FIELDS.forEach(function (kv) {
+      var field = kv[0], label = kv[1], type = kv[2];
+      var v = a.readVar(field);
+      var row = el("div", "mbce-row");
+      row.appendChild(el("span", "mbce-row-label", label + "（$" + field + "）"));
+      var inp = el("input", "mbce-in");
+      inp.type = type;
+      inp.value = (v === undefined || v === null) ? "" : String(v);
+      row.appendChild(inp);
+      var btn = el("button", "mbce-btn", "保存");
+      btn.addEventListener("click", function () {
+        var r = writePcField(field, inp.value);
+        if (r && r.ok) { inp.value = String(r.to); }
+        else {
+          inp.value = (v === undefined || v === null) ? "" : String(v);
+          var msg = (r && r.reason) ? (M.i18n && M.i18n.reason ? M.i18n.reason(r.reason) : r.reason) : "失败";
+          var st = M.shell && M.shell.statusEl;
+          if (st) { st.textContent = "保存未生效：" + msg + "（写档留痕 $mbCE_wrote 可查）"; }
+        }
+      });
+      row.appendChild(btn);
+      pc.appendChild(row);
     });
+    pc.appendChild(el("p", "mbce-plain", "注：性别/种族等字段的部分游戏联动（如身体部件）由剧情设定，改字段可能不完全联动。"));
     box.appendChild(pc);
     var people = el("div", "mbce-group");
     people.appendChild(el("b", null, "认识的人（$people 自发现）"));
@@ -693,6 +730,8 @@ window.mbCE_cot = {
     applyEdit: applyEdit,
     readGroup: readGroup,
     discoverPeople: discoverPeople,
+    writePcField: writePcField,
+    pcFields: PC_FIELDS,
     render: render,
   };
 })();
@@ -911,6 +950,21 @@ window.mbCE_cot = {
 
     var list = D.discoverPeople();
     if (list.length === 0) { box.appendChild(el("p", "mbce-plain", "（暂无认识的人，剧情推进后出现）")); return true; }
+    // NPC 搜索过滤（R10）：按 NPC 名即时过滤折叠块
+    var dets = [];
+    var nRow = el("div", "mbce-row");
+    nRow.appendChild(el("span", "mbce-row-label", "过滤 NPC"));
+    var nInp = el("input", "mbce-in");
+    nInp.type = "text";
+    nInp.addEventListener("input", function () {
+      var q = nInp.value.trim().toLowerCase();
+      dets.forEach(function (d) {
+        var nm = (d.getAttribute("data-name") || "").toLowerCase();
+        d.style.display = (!q || nm.indexOf(q) >= 0) ? "" : "none";
+      });
+    });
+    nRow.appendChild(nInp);
+    box.appendChild(nRow);
     // 每 NPC 折叠状态记忆（R9）：mbCE_cot_ui_rel 存收起 NPC 名
     var relLsKey = "mbCE_cot_ui_rel";
     function readClosedRel() {
@@ -922,6 +976,8 @@ window.mbCE_cot = {
       // 分组优化：每 NPC 一个折叠块（默认展开）
       var det = el("details");
       det.open = (closedRel.indexOf(p.name) >= 0) ? "" : "open";
+      det.setAttribute("data-name", p.name);
+      dets.push(det);
       det.addEventListener("toggle", function () {
         var arr = readClosedRel();
         var isOpen = !!det.open;
@@ -1440,6 +1496,21 @@ window.mbCE_cot = {
     g.appendChild(el("p", "mbce-plain", "自检键 setup.mbStageCE：" + d.self));
     g.appendChild(el("p", "mbce-plain", "运行版本：MapleBirchCE-CoT " + M.version + " · 目标 CoT " + M.targetGameVersion));
     box.appendChild(g);
+
+    // 自检详情（R10）：模块 stage + 适配器目录 + UI 偏好键
+    var diag = el("div", "mbce-group");
+    diag.appendChild(el("b", null, "自检详情"));
+    var st = M.stage || {};
+    diag.appendChild(el("p", "mbce-plain", "模块：core=" + st.core + " · adapter=" + st.adapter + " · shell=" + st.shell));
+    try {
+      var chk = M.adapter && typeof M.adapter.check === "function" ? M.adapter.check() : null;
+      if (chk) { diag.appendChild(el("p", "mbce-plain", "适配器：目录 " + (chk.catalog ? Object.keys(chk.catalog).length : 0) + " 键 · 留痕 $mbCE_wrote=" + (chk.wroteCount !== undefined ? chk.wroteCount : "?") + " 次")); }
+    } catch (e) {}
+    try {
+      var keys = ["mbCE_cot_ui", "mbCE_cot_ui_tab", "mbCE_cot_ui_font", "mbCE_cot_ui_pos", "mbCE_cot_ui_stats", "mbCE_cot_ui_rel"];
+      diag.appendChild(el("p", "mbce-plain", "UI 偏好：" + keys.filter(function (k) { return localStorage.getItem(k) !== null; }).join(" / ") || "（无）"));
+    } catch (e) {}
+    box.appendChild(diag);
 
     var dep = el("div", "mbce-group");
     dep.appendChild(el("b", null, "依赖声明（boot.json）"));

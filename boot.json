@@ -4,7 +4,7 @@
     "en": "Maplebirch CE - CoT Global Cheat Panel",
     "cn": "Maplebirch CE · CoT 全局调试面板"
   },
-  "version": "0.6.7",
+  "version": "0.6.8",
   "styleFileList": [],
   "scriptFileList_inject_early": [
     "javascript/maplebirchce-cot.js"

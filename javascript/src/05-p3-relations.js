@@ -211,6 +211,21 @@
 
     var list = D.discoverPeople();
     if (list.length === 0) { box.appendChild(el("p", "mbce-plain", "（暂无认识的人，剧情推进后出现）")); return true; }
+    // NPC 搜索过滤（R10）：按 NPC 名即时过滤折叠块
+    var dets = [];
+    var nRow = el("div", "mbce-row");
+    nRow.appendChild(el("span", "mbce-row-label", "过滤 NPC"));
+    var nInp = el("input", "mbce-in");
+    nInp.type = "text";
+    nInp.addEventListener("input", function () {
+      var q = nInp.value.trim().toLowerCase();
+      dets.forEach(function (d) {
+        var nm = (d.getAttribute("data-name") || "").toLowerCase();
+        d.style.display = (!q || nm.indexOf(q) >= 0) ? "" : "none";
+      });
+    });
+    nRow.appendChild(nInp);
+    box.appendChild(nRow);
     // 每 NPC 折叠状态记忆（R9）：mbCE_cot_ui_rel 存收起 NPC 名
     var relLsKey = "mbCE_cot_ui_rel";
     function readClosedRel() {
@@ -222,6 +237,8 @@
       // 分组优化：每 NPC 一个折叠块（默认展开）
       var det = el("details");
       det.open = (closedRel.indexOf(p.name) >= 0) ? "" : "open";
+      det.setAttribute("data-name", p.name);
+      dets.push(det);
       det.addEventListener("toggle", function () {
         var arr = readClosedRel();
         var isOpen = !!det.open;

@@ -4,7 +4,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.7"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.6.8"; // 双源：boot.json version 必须一致
 
 window.mbCE_cot = {
   version: MCE_VERSION,
