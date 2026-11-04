@@ -1,7 +1,22 @@
 # ============================================================================
-# dev.ps1 — MapleBirchCE-CoT 开发闭环入口（P0 骨架占位）
-# P1 起承载：单元测试 → 静态取证核验 → 打包 verifier + SHA256 → 复制 zip 装进消费端 cot-game\
+# dev.ps1 — MapleBirchCE-CoT 开发闭环入口（P1：语法 → 单测 → 打包 verifier）
 # 实机冒烟（moli）按用户指令停用为默认门禁，仅按需调用 tools\cot_smoke.ps1
 # ============================================================================
 $ErrorActionPreference = "Stop"
-Write-Host "MapleBirchCE-CoT dev.ps1 — 当前 Phase 0（骨架）。P1 起接入 build/syntax/smoke/regression/E2E/gender 全链。"
+$repo = $PSScriptRoot   # dev.ps1 位于仓库根
+
+Write-Host "== [1/3] 语法检查（node --check） =="
+foreach ($f in @("01-core.js", "02-shell.js", "03-cot-adapter.js")) {
+    node --check (Join-Path $repo "javascript\src\$f")
+    Write-Host "  OK $f"
+}
+
+Write-Host "== [2/3] 单元测试（node tests\run-tests.js） =="
+node (Join-Path $repo "tests\run-tests.js")
+if ($LASTEXITCODE -ne 0) { throw "单测失败" }
+
+Write-Host "== [3/3] 打包 + verifier 4/4 + SHA256 =="
+& (Join-Path $repo "tools\pack.ps1")
+if ($LASTEXITCODE -ne 0) { throw "打包校验失败" }
+
+Write-Host "== dev.ps1 全链 PASS =="

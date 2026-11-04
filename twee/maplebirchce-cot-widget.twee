@@ -1,0 +1,4 @@
+:: Widgets [widget]
+<<widget "mbCECotWidget">>
+	<!-- P1 骨架：无副作用占位 widget；面板 DOM 由 inject_early 脚本注入。 -->
+<</widget>>

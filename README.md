@@ -1,7 +1,7 @@
 # MapleBirchCE-CoT · CoT 全局调试面板（移植项目）
 
 > 将 DoL 版 MapleBirchCE（v1.9.27）移植到 Course of Temptation（CoT 0.8.2i）。
-> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 0 完成（环境基线 + 仓库骨架）**。
+> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 1 完成（CE 骨架：最小可加载 mod + 悬浮球/面板壳 + CoT 键适配层）**。
 
 ## 决策记录（2026-11-04 用户拍板）
 
@@ -24,8 +24,8 @@
 
 - `javascript/src/*.js`：源码（只改这里；打包产物 `javascript/maplebirchce-cot.js` 由构建生成，绝不手改）
 - `twee/`：widget（`maplebirchce-cot-widget.twee`）
-- `tests/`：单元测试（tdd 红绿循环）
-- `tools/`：打包/冒烟/快照/键核验工具（P1 起迁入）
+- `tests/`：单元测试（tdd 红绿循环；node 0 依赖）
+- `tools/`：打包（pack.ps1，verifier 4/4）/ 冒烟（cot_smoke.ps1，按需）/ 快照 / 键核验工具
 - `.selfcheck/`：基线快照（SHA256）
 - 消费端：`C:\Users\27352\Doubao\chats\2026-11-04\new-chat\cot-game\`（CoT HTML + ModI18N + 基线）
 
@@ -35,3 +35,4 @@
 - 版本双源必须同步：`javascript/src/01-core.js` MCE_VERSION 与 `boot.json` version。
 - 不升版本、不发布、不擅自清理用户文件——均需用户明确指令。
 - 实机冒烟（moli）按用户指令停用为默认门禁（太慢）；`tools/cot_smoke.ps1` 留档为按需复核工具。默认验证 = 静态取证 + 单元测试 + 打包 verifier + 消费端人工实机。
+- P1 验证链：`node --check` 语法 → `node tests\run-tests.js` 单测 → `tools\pack.ps1` verifier 4/4 + SHA256（`dev.ps1` 一键）。
