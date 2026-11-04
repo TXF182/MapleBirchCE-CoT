@@ -15,6 +15,7 @@
   var panelId = CID + "_panel";
   var rootId = CID + "_root";
   var uiLsKey = CID + "_ui";
+  var uiTabKey = CID + "_ui_tab"; // 页签记忆（R6）
 
   var TABS = [
     { id: "char",  label: "角色", render: function (box) { return hookRender("char", box); } },
@@ -74,6 +75,8 @@
       "#" + panelId + " .mbce-row-label { flex: 1 1 auto; font-size: 12px; color: #5c4a20; }",
       "#" + panelId + " .mbce-in { width: 84px; padding: 2px 6px; border: 1px solid #d9c27a; border-radius: 4px; background: #fff; color: #3a2c10; }",
       "#" + panelId + " .mbce-btn { padding: 2px 10px; border: 1px solid #c9a227; background: #f5d76e; color: #5a4300; border-radius: 4px; cursor: pointer; }",
+      "#" + panelId + " .mbce-chip { padding: 1px 8px; border: 1px solid #d9c27a; background: #fff; color: #6b5a2a; border-radius: 10px; cursor: pointer; font-size: 12px; }",
+      "#" + panelId + " .mbce-chip.on { background: #c9a227; border-color: #c9a227; color: #fff; }",
     ].join("\n");
     var el = document.createElement("style");
     el.id = cssId;
@@ -116,6 +119,21 @@
     box.appendChild(el("p", "mbce-plain", "「" + TABS.filter(function (t) { return t.id === tabId; })[0].label + "」" + (map[tabId] || "待实现")));
   }
 
+  function activateTab(tabId) {
+    var tab = TABS.filter(function (t) { return t.id === tabId; })[0];
+    if (!tab) { tabId = "char"; }
+    state.activeTab = tabId;
+    var tabsEl = state.tabsEl;
+    if (tabsEl) {
+      Array.prototype.forEach.call(tabsEl.children, function (c) { c.className = "mbce-tab"; });
+      Array.prototype.forEach.call(tabsEl.children, function (c) {
+        if (c.textContent === tab.label) { c.className = "mbce-tab on"; }
+      });
+    }
+    renderContent(tabId);
+    try { localStorage.setItem(uiTabKey, tabId); } catch (e) {}
+  }
+
   function updateBadge() {
     if (!state.badge) { return; }
     var a = M.adapter;
@@ -143,16 +161,12 @@
 
     var tabs = el("div", "mbce-tabs");
     TABS.forEach(function (t) {
-      var b = el("div", "mbce-tab" + (t.id === "char" ? " on" : ""), t.label);
-      b.addEventListener("click", function () {
-        state.activeTab = t.id;
-        Array.prototype.forEach.call(tabs.children, function (c) { c.className = "mbce-tab"; });
-        b.className = "mbce-tab on";
-        renderContent(t.id);
-      });
+      var b = el("div", "mbce-tab", t.label);
+      b.addEventListener("click", function () { activateTab(t.id); });
       tabs.appendChild(b);
     });
     panel.appendChild(tabs);
+    state.tabsEl = tabs;
 
     var body = el("div", "mbce-body");
     panel.appendChild(body);
@@ -161,7 +175,9 @@
 
     document.body.appendChild(panel);
     state.panel = panel; state.content = body; state.badge = badge; state.status = status;
-    renderContent("char");
+    var savedTab = "char";
+    try { savedTab = localStorage.getItem(uiTabKey) || "char"; } catch (e) {}
+    activateTab(savedTab);
     var saved = "off";
     try { saved = localStorage.getItem(uiLsKey) || "off"; } catch (e) {}
     if (saved === "on") { toggle(true); }
@@ -208,6 +224,8 @@
     init: init,
     open: toggle,
     refresh: updateBadge,
+    activateTab: activateTab,
+    activeTab: function () { return state.activeTab; },
     statusEl: null,
     tabs: TABS,
   };

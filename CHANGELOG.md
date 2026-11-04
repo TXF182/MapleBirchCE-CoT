@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [0.6.4] - 2026-11-04
+
+- R6 三项增强：
+  - **页签记忆**：面板记住上次打开的页签（localStorage `mbCE_cot_ui_tab`，开合状态键不变），刷新/重开面板恢复；`M.shell.activateTab/activeTab`。
+  - **$people 深层字段**：关系页每 NPC 新增昵称（nickname，文本）与年龄（age，1-120 校验）编辑，Person 实例属性直改留痕；`M.rel.writePersonField`。
+  - **Findr 标签选择器 UI**：tags 由逗号文本输入改为 8 个可点击 chip（Open/Poly/Romance/Hookups/Dominant/Submissive/Exhibitionist/Voyeur），点击即时保存、再点取消、选中高亮。
+- 单测扩至 42 项。
+
 ## [0.6.3] - 2026-11-04
 
 - R5 场景/数值页增强（取证：scan13/scan13b 定向取证 setup.Weather / setup.Findr / $findr）：

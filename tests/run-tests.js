@@ -73,7 +73,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.6.3");
+  assert.strictEqual(M.version, "0.6.4");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -137,7 +137,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.6.3");
+  assert.strictEqual(c.version, "0.6.4");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -149,7 +149,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.6.3");
+  assert.strictEqual(st.version, "0.6.4");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -490,6 +490,52 @@ test("R5: 数值页分组折叠（4 组 details）", () => {
   assert.ok(titles.some(t => t === "身体（$pcstats）"), "身体组标题");
   assert.ok(titles.some(t => t === "需求（$pcneeds）"), "需求组标题");
   assert.ok(box.children.slice(1).every(c => c.open === "open"), "4 个分组默认展开");
+});
+
+test("R6: 页签记忆（恢复 + 切换持久化）", () => {
+  const env = makeEnv();
+  env.sandbox.localStorage.setItem("mbCE_cot_ui_tab", "rel");
+  loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  assert.strictEqual(S.activeTab(), "rel", "恢复上次页签");
+  S.activateTab("scene");
+  assert.strictEqual(S.activeTab(), "scene");
+  assert.strictEqual(env.sandbox.localStorage.getItem("mbCE_cot_ui_tab"), "scene", "切换持久化");
+});
+
+test("R6: $people 深层字段（昵称/年龄）", () => {
+  const env = makeEnv(); loadAll(env);
+  const R = env.sandbox.mbCE_cot.rel;
+  env.sandbox.State.variables.people = { "Alice": {} };
+  let r = R.writePersonField("Alice", "nickname", " 小A ");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.people.Alice.nickname, "小A", "trim");
+  r = R.writePersonField("Alice", "age", "18");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.people.Alice.age, 18);
+  r = R.writePersonField("Alice", "age", "200");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "range:1-120");
+  r = R.writePersonField("Alice", "age", "abc");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "nan");
+  r = R.writePersonField("Nobody", "nickname", "x");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "no-person");
+});
+
+test("R6: Findr 标签 chip 选择器渲染", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.findr = { name: "u", tags: ["Open"], liked: [], disliked: [], matched: [] };
+  const box = env.sandbox.document.createElement("div");
+  const ok = env.sandbox.mbCE_cot.data.render("scene", box);
+  assert.strictEqual(ok, true);
+  // 收集所有 chip 按钮
+  const chips = [];
+  (function walk(n) { n.children.forEach(c => { if (c.className && c.className.indexOf("mbce-chip") === 0) { chips.push(c); } walk(c); }); })(box);
+  assert.strictEqual(chips.length, 8, "8 个标签 chip");
+  const openChip = chips.filter(c => c.textContent === "Open")[0];
+  assert.ok(openChip && openChip.className.indexOf(" on") >= 0, "已选标签高亮");
 });
 
 let failed = 0;

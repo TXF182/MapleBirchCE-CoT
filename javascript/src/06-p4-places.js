@@ -26,8 +26,9 @@
     "SummitMarket", "ThoreauBuilding", "BangCoffee", "BlodgettGym",
     "HousingRoom", "YourDorm", "NutmegSt", "RiverRat",
   ];
-  // $findr 可编辑字段（玩家 Findr 状态；tags 有效值提示来自 setup.Findr.likes_tags 检查的标签集）
-  var FIND_FIELDS = [["name", "用户名"], ["tags", "主页标签"], ["liked", "已喜欢（NPC 名）"], ["disliked", "不喜欢（NPC 名）"], ["matched", "已匹配（NPC 名）"]];
+  // $findr 可编辑字段（玩家 Findr 状态；tags 用 chip 选择器，有效值提示来自
+  // setup.Findr.likes_tags 检查的标签集）
+  var FIND_FIELDS = [["name", "用户名"], ["liked", "已喜欢（NPC 名）"], ["disliked", "不喜欢（NPC 名）"], ["matched", "已匹配（NPC 名）"]];
   var FIND_TAG_HINTS = ["Open", "Poly", "Romance", "Hookups", "Dominant", "Submissive", "Exhibitionist", "Voyeur"];
 
   function adapter() { return M.adapter; }
@@ -213,7 +214,27 @@
         row.appendChild(btn);
         findr.appendChild(row);
       });
-      findr.appendChild(el("p", "mbce-plain", "tags 可用值：" + FIND_TAG_HINTS.join(" / ") + "（数组字段用逗号分隔，如 Open, Romance）"));
+      // tags：chip 选择器，点击即时保存（再点取消）
+      var tagRow = el("div", "mbce-row");
+      tagRow.appendChild(el("span", "mbce-row-label", "主页标签（findr.tags）"));
+      findr.appendChild(tagRow);
+      var chipWrap = el("div", "mbce-row");
+      var curTags = (f.tags && Array.isArray(f.tags)) ? f.tags : [];
+      FIND_TAG_HINTS.forEach(function (tag) {
+        var c = el("button", "mbce-chip" + (curTags.indexOf(tag) >= 0 ? " on" : ""), tag);
+        c.addEventListener("click", function () {
+          var fr = readFindr();
+          var arr = (fr && fr.tags && Array.isArray(fr.tags)) ? fr.tags.slice() : [];
+          var i = arr.indexOf(tag);
+          if (i >= 0) { arr.splice(i, 1); } else { arr.push(tag); }
+          var r = writeFindrField("tags", arr.join(","));
+          if (r && r.ok) { c.className = "mbce-chip" + (arr.indexOf(tag) >= 0 ? " on" : ""); }
+          else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+        });
+        chipWrap.appendChild(c);
+      });
+      findr.appendChild(chipWrap);
+      findr.appendChild(el("p", "mbce-plain", "点击标签即时保存（再点取消）。liked/disliked/matched 为 NPC 名数组，逗号分隔，如 Alice, Bob"));
     }
     var note = el("p", "mbce-plain", "说明：setup.Findr 为方法容器（username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match），NPC 是否在线上由游戏实时计算，无需也不可直改。");
     findr.appendChild(note);

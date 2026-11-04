@@ -6,7 +6,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.3"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.6.4"; // 双源：boot.json version 必须一致
 
 window.mbCE_cot = {
   version: MCE_VERSION,
@@ -60,6 +60,7 @@ window.mbCE_cot = {
   var panelId = CID + "_panel";
   var rootId = CID + "_root";
   var uiLsKey = CID + "_ui";
+  var uiTabKey = CID + "_ui_tab"; // 页签记忆（R6）
 
   var TABS = [
     { id: "char",  label: "角色", render: function (box) { return hookRender("char", box); } },
@@ -119,6 +120,8 @@ window.mbCE_cot = {
       "#" + panelId + " .mbce-row-label { flex: 1 1 auto; font-size: 12px; color: #5c4a20; }",
       "#" + panelId + " .mbce-in { width: 84px; padding: 2px 6px; border: 1px solid #d9c27a; border-radius: 4px; background: #fff; color: #3a2c10; }",
       "#" + panelId + " .mbce-btn { padding: 2px 10px; border: 1px solid #c9a227; background: #f5d76e; color: #5a4300; border-radius: 4px; cursor: pointer; }",
+      "#" + panelId + " .mbce-chip { padding: 1px 8px; border: 1px solid #d9c27a; background: #fff; color: #6b5a2a; border-radius: 10px; cursor: pointer; font-size: 12px; }",
+      "#" + panelId + " .mbce-chip.on { background: #c9a227; border-color: #c9a227; color: #fff; }",
     ].join("\n");
     var el = document.createElement("style");
     el.id = cssId;
@@ -161,6 +164,21 @@ window.mbCE_cot = {
     box.appendChild(el("p", "mbce-plain", "「" + TABS.filter(function (t) { return t.id === tabId; })[0].label + "」" + (map[tabId] || "待实现")));
   }
 
+  function activateTab(tabId) {
+    var tab = TABS.filter(function (t) { return t.id === tabId; })[0];
+    if (!tab) { tabId = "char"; }
+    state.activeTab = tabId;
+    var tabsEl = state.tabsEl;
+    if (tabsEl) {
+      Array.prototype.forEach.call(tabsEl.children, function (c) { c.className = "mbce-tab"; });
+      Array.prototype.forEach.call(tabsEl.children, function (c) {
+        if (c.textContent === tab.label) { c.className = "mbce-tab on"; }
+      });
+    }
+    renderContent(tabId);
+    try { localStorage.setItem(uiTabKey, tabId); } catch (e) {}
+  }
+
   function updateBadge() {
     if (!state.badge) { return; }
     var a = M.adapter;
@@ -188,16 +206,12 @@ window.mbCE_cot = {
 
     var tabs = el("div", "mbce-tabs");
     TABS.forEach(function (t) {
-      var b = el("div", "mbce-tab" + (t.id === "char" ? " on" : ""), t.label);
-      b.addEventListener("click", function () {
-        state.activeTab = t.id;
-        Array.prototype.forEach.call(tabs.children, function (c) { c.className = "mbce-tab"; });
-        b.className = "mbce-tab on";
-        renderContent(t.id);
-      });
+      var b = el("div", "mbce-tab", t.label);
+      b.addEventListener("click", function () { activateTab(t.id); });
       tabs.appendChild(b);
     });
     panel.appendChild(tabs);
+    state.tabsEl = tabs;
 
     var body = el("div", "mbce-body");
     panel.appendChild(body);
@@ -206,7 +220,9 @@ window.mbCE_cot = {
 
     document.body.appendChild(panel);
     state.panel = panel; state.content = body; state.badge = badge; state.status = status;
-    renderContent("char");
+    var savedTab = "char";
+    try { savedTab = localStorage.getItem(uiTabKey) || "char"; } catch (e) {}
+    activateTab(savedTab);
     var saved = "off";
     try { saved = localStorage.getItem(uiLsKey) || "off"; } catch (e) {}
     if (saved === "on") { toggle(true); }
@@ -253,6 +269,8 @@ window.mbCE_cot = {
     init: init,
     open: toggle,
     refresh: updateBadge,
+    activateTab: activateTab,
+    activeTab: function () { return state.activeTab; },
     statusEl: null,
     tabs: TABS,
   };
@@ -647,6 +665,27 @@ window.mbCE_cot = {
     return a.writeVar("people." + person + ".relationship", v);
   }
 
+  // $people 深层字段（Person 实例属性，直改留痕；年龄范围保守校验）
+  function writePersonField(person, field, raw) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    if (raw === undefined || raw === null) { return { ok: false, reason: "empty" }; }
+    var base = a.readVar("people." + person);
+    if (!base || typeof base !== "object") { return { ok: false, reason: "no-person" }; }
+    if (field === "nickname") {
+      var v = String(raw).trim();
+      if (!v) { return { ok: false, reason: "empty" }; }
+      return a.writeVar("people." + person + ".nickname", v);
+    }
+    if (field === "age") {
+      var n = Number(raw);
+      if (!isFinite(n)) { return { ok: false, reason: "nan" }; }
+      if (n < 1 || n > 120) { return { ok: false, reason: "range:1-120" }; }
+      return a.writeVar("people." + person + ".age", n);
+    }
+    return { ok: false, reason: "empty" };
+  }
+
   function rowEl(label, value, onSave) {
     var wrap = el("div", "mbce-row");
     wrap.appendChild(el("span", "mbce-row-label", label));
@@ -728,6 +767,35 @@ window.mbCE_cot = {
       g.appendChild(el("p", "mbce-plain", "可选标签：" + REL_HINTS.join(" / ") + "（可自定义，留空 = 清除）"));
       var att = null;
       if (info && info.attitude && typeof info.attitude === "object") { att = info.attitude; }
+      // $people 深层字段：昵称 + 年龄
+      var nickRow = el("div", "mbce-row");
+      nickRow.appendChild(el("span", "mbce-row-label", "昵称（nickname）"));
+      var nickInp = el("input", "mbce-in");
+      nickInp.type = "text";
+      nickInp.value = (info && info.nickname !== undefined) ? String(info.nickname) : "";
+      nickRow.appendChild(nickInp);
+      var nickBtn = el("button", "mbce-btn", "保存");
+      nickBtn.addEventListener("click", function () {
+        var r = writePersonField(p.name, "nickname", nickInp.value);
+        if (r && r.ok) { nickInp.value = String(r.to); }
+        else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+      });
+      nickRow.appendChild(nickBtn);
+      g.appendChild(nickRow);
+      var ageRow = el("div", "mbce-row");
+      ageRow.appendChild(el("span", "mbce-row-label", "年龄（age，1-120）"));
+      var ageInp = el("input", "mbce-in");
+      ageInp.type = "number";
+      ageInp.value = (info && info.age !== undefined) ? String(info.age) : "";
+      ageRow.appendChild(ageInp);
+      var ageBtn = el("button", "mbce-btn", "保存");
+      ageBtn.addEventListener("click", function () {
+        var r = writePersonField(p.name, "age", ageInp.value);
+        if (r && r.ok) { ageInp.value = String(r.to); }
+        else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+      });
+      ageRow.appendChild(ageBtn);
+      g.appendChild(ageRow);
       ATT_TYPES.forEach(function (kv) {
         g.appendChild(rowEl(kv[1] + "（attitude." + kv[0] + "）", att ? att[kv[0]] : undefined, function (raw) { return writeAttitude(p.name, kv[0], raw); }));
       });
@@ -741,6 +809,7 @@ window.mbCE_cot = {
     writeAttitude: writeAttitude,
     setCrush: setCrush,
     writeRelationship: writeRelationship,
+    writePersonField: writePersonField,
     relLabel: relLabel,
     render: renderRel,
   };
@@ -781,8 +850,9 @@ window.mbCE_cot = {
     "SummitMarket", "ThoreauBuilding", "BangCoffee", "BlodgettGym",
     "HousingRoom", "YourDorm", "NutmegSt", "RiverRat",
   ];
-  // $findr 可编辑字段（玩家 Findr 状态；tags 有效值提示来自 setup.Findr.likes_tags 检查的标签集）
-  var FIND_FIELDS = [["name", "用户名"], ["tags", "主页标签"], ["liked", "已喜欢（NPC 名）"], ["disliked", "不喜欢（NPC 名）"], ["matched", "已匹配（NPC 名）"]];
+  // $findr 可编辑字段（玩家 Findr 状态；tags 用 chip 选择器，有效值提示来自
+  // setup.Findr.likes_tags 检查的标签集）
+  var FIND_FIELDS = [["name", "用户名"], ["liked", "已喜欢（NPC 名）"], ["disliked", "不喜欢（NPC 名）"], ["matched", "已匹配（NPC 名）"]];
   var FIND_TAG_HINTS = ["Open", "Poly", "Romance", "Hookups", "Dominant", "Submissive", "Exhibitionist", "Voyeur"];
 
   function adapter() { return M.adapter; }
@@ -968,7 +1038,27 @@ window.mbCE_cot = {
         row.appendChild(btn);
         findr.appendChild(row);
       });
-      findr.appendChild(el("p", "mbce-plain", "tags 可用值：" + FIND_TAG_HINTS.join(" / ") + "（数组字段用逗号分隔，如 Open, Romance）"));
+      // tags：chip 选择器，点击即时保存（再点取消）
+      var tagRow = el("div", "mbce-row");
+      tagRow.appendChild(el("span", "mbce-row-label", "主页标签（findr.tags）"));
+      findr.appendChild(tagRow);
+      var chipWrap = el("div", "mbce-row");
+      var curTags = (f.tags && Array.isArray(f.tags)) ? f.tags : [];
+      FIND_TAG_HINTS.forEach(function (tag) {
+        var c = el("button", "mbce-chip" + (curTags.indexOf(tag) >= 0 ? " on" : ""), tag);
+        c.addEventListener("click", function () {
+          var fr = readFindr();
+          var arr = (fr && fr.tags && Array.isArray(fr.tags)) ? fr.tags.slice() : [];
+          var i = arr.indexOf(tag);
+          if (i >= 0) { arr.splice(i, 1); } else { arr.push(tag); }
+          var r = writeFindrField("tags", arr.join(","));
+          if (r && r.ok) { c.className = "mbce-chip" + (arr.indexOf(tag) >= 0 ? " on" : ""); }
+          else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+        });
+        chipWrap.appendChild(c);
+      });
+      findr.appendChild(chipWrap);
+      findr.appendChild(el("p", "mbce-plain", "点击标签即时保存（再点取消）。liked/disliked/matched 为 NPC 名数组，逗号分隔，如 Alice, Bob"));
     }
     var note = el("p", "mbce-plain", "说明：setup.Findr 为方法容器（username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match），NPC 是否在线上由游戏实时计算，无需也不可直改。");
     findr.appendChild(note);

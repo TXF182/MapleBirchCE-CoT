@@ -80,6 +80,27 @@
     return a.writeVar("people." + person + ".relationship", v);
   }
 
+  // $people 深层字段（Person 实例属性，直改留痕；年龄范围保守校验）
+  function writePersonField(person, field, raw) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    if (raw === undefined || raw === null) { return { ok: false, reason: "empty" }; }
+    var base = a.readVar("people." + person);
+    if (!base || typeof base !== "object") { return { ok: false, reason: "no-person" }; }
+    if (field === "nickname") {
+      var v = String(raw).trim();
+      if (!v) { return { ok: false, reason: "empty" }; }
+      return a.writeVar("people." + person + ".nickname", v);
+    }
+    if (field === "age") {
+      var n = Number(raw);
+      if (!isFinite(n)) { return { ok: false, reason: "nan" }; }
+      if (n < 1 || n > 120) { return { ok: false, reason: "range:1-120" }; }
+      return a.writeVar("people." + person + ".age", n);
+    }
+    return { ok: false, reason: "empty" };
+  }
+
   function rowEl(label, value, onSave) {
     var wrap = el("div", "mbce-row");
     wrap.appendChild(el("span", "mbce-row-label", label));
@@ -161,6 +182,35 @@
       g.appendChild(el("p", "mbce-plain", "可选标签：" + REL_HINTS.join(" / ") + "（可自定义，留空 = 清除）"));
       var att = null;
       if (info && info.attitude && typeof info.attitude === "object") { att = info.attitude; }
+      // $people 深层字段：昵称 + 年龄
+      var nickRow = el("div", "mbce-row");
+      nickRow.appendChild(el("span", "mbce-row-label", "昵称（nickname）"));
+      var nickInp = el("input", "mbce-in");
+      nickInp.type = "text";
+      nickInp.value = (info && info.nickname !== undefined) ? String(info.nickname) : "";
+      nickRow.appendChild(nickInp);
+      var nickBtn = el("button", "mbce-btn", "保存");
+      nickBtn.addEventListener("click", function () {
+        var r = writePersonField(p.name, "nickname", nickInp.value);
+        if (r && r.ok) { nickInp.value = String(r.to); }
+        else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+      });
+      nickRow.appendChild(nickBtn);
+      g.appendChild(nickRow);
+      var ageRow = el("div", "mbce-row");
+      ageRow.appendChild(el("span", "mbce-row-label", "年龄（age，1-120）"));
+      var ageInp = el("input", "mbce-in");
+      ageInp.type = "number";
+      ageInp.value = (info && info.age !== undefined) ? String(info.age) : "";
+      ageRow.appendChild(ageInp);
+      var ageBtn = el("button", "mbce-btn", "保存");
+      ageBtn.addEventListener("click", function () {
+        var r = writePersonField(p.name, "age", ageInp.value);
+        if (r && r.ok) { ageInp.value = String(r.to); }
+        else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+      });
+      ageRow.appendChild(ageBtn);
+      g.appendChild(ageRow);
       ATT_TYPES.forEach(function (kv) {
         g.appendChild(rowEl(kv[1] + "（attitude." + kv[0] + "）", att ? att[kv[0]] : undefined, function (raw) { return writeAttitude(p.name, kv[0], raw); }));
       });
@@ -174,6 +224,7 @@
     writeAttitude: writeAttitude,
     setCrush: setCrush,
     writeRelationship: writeRelationship,
+    writePersonField: writePersonField,
     relLabel: relLabel,
     render: renderRel,
   };
