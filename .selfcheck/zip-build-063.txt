@@ -1,0 +1,13 @@
+
+No Name                                                     Ok
+-- ----                                                     --
+ 1 boot.json 有效 JSON + 必备字段                         True
+ 2 版本双源一致 boot=0.6.3 src=0.6.3                      True
+ 3 产物含标记 (window.mbCE_cot / mbStageCE / fab / panel) True
+ 4 boot.json 引用路径全部存在                             True
+
+VERIFIER: 4/4 PASS
+产物: C:\Users\27352\Doubao\chats\2026-11-04\new-chat\MapleBirchCE-CoT\javascript\maplebirchce-cot.js
+SHA256: 03EC1B04553B3156F3F57F1D9B71078C2ED0A9B2EB0747436B2806D5D62AB415
+ZIP: C:\Users\27352\Doubao\chats\2026-11-04\new-chat\MapleBirchCE-CoT\MapleBirchCE-CoT-0.6.3.mod.zip
+ZIP SHA256: F5AC1482588BE03450A7163B5431DF0115ABCE4AE7FC0BD398ED2521613E3626
