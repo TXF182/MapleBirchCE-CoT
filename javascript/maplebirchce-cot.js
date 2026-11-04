@@ -6,7 +6,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.2"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.6.3"; // 双源：boot.json version 必须一致
 
 window.mbCE_cot = {
   version: MCE_VERSION,
@@ -30,6 +30,7 @@ window.mbCE_cot = {
       "empty": "值为空",
       "nan": "非数字",
       "no-person": "该对象不存在",
+      "no-findr": "未注册 Findr（请先游戏内注册）",
       "parent-missing": "父级键缺失",
     },
     reason: function (code) {
@@ -481,25 +482,29 @@ window.mbCE_cot = {
   function renderStats(box) {
     var a = adapter();
     if (!a) { box.appendChild(el("p", "mbce-plain", "适配层未就绪")); return true; }
-    var s = el("p", "mbce-plain", "写入即时生效并留痕 $mbCE_wrote；读档可回退。");
-    box.appendChild(s);
-    // 顶层数值 + 时间
-    var topBox = el("div", "mbce-group");
+    box.appendChild(el("p", "mbce-plain", "写入即时生效并留痕 $mbCE_wrote；读档可回退。"));
+    // 分组折叠：每组一个 <details open>，标题可点击收起/展开
+    function groupBlock(title) {
+      var det = el("details");
+      det.open = "open";
+      det.appendChild(el("summary", null, title));
+      var body = el("div", "mbce-group");
+      det.appendChild(body);
+      box.appendChild(det);
+      return body;
+    }
+    var topBody = groupBlock("顶层数值与时间");
     Object.keys(TOP).forEach(function (k) {
       var meta = TOP[k];
       var cur = a.readVar(meta.path);
-      topBox.appendChild(rowEl(meta.label + "（" + meta.path + "）", cur, function (raw) { return applyEdit(k, null, raw); }));
+      topBody.appendChild(rowEl(meta.label + "（" + meta.path + "）", cur, function (raw) { return applyEdit(k, null, raw); }));
     });
-    box.appendChild(topBox);
-    // 组
     GROUPS.forEach(function (g) {
-      var gBox = el("div", "mbce-group");
-      gBox.appendChild(el("b", null, g.label + "（" + g.path + "）"));
+      var body = groupBlock(g.label + "（$" + g.path + "）");
       var base = readGroup(g.path);
       g.keys.forEach(function (kv) {
-        gBox.appendChild(rowEl(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }));
+        body.appendChild(rowEl(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }));
       });
-      box.appendChild(gBox);
     });
     return true;
   }
@@ -758,9 +763,12 @@ window.mbCE_cot = {
  *     BangCoffee/HousingRoom/YourDorm/NutmegSt/RiverRat
  *   $previouslocation、$locationblock（区域）
  *   $peopleatlocation = NPC 名数组（setup.people_at_location() 计算）
- *   $weather = setup.Weather.state() 对象（todaysWeather/yesterdaysWeather，只读展示）
+ *   $weather = setup.Weather.state() 对象（todaysWeather/yesterdaysWeather，只读展示；
+ *     时间推进时游戏重建快照 V.weather = setup.Weather.state()，直改不持久）
  *   $preencountertags = 场景标签数组（遭遇结束重置 []）；$lastloc / $lastloctags（地点标签数组）
- * 纪律：地点跳转/标签清空走 adapter 留痕；数组只读展示；场景页 Findr 读 setup（try/catch）。
+ *   $findr = 玩家 Findr 状态（{name, tags[], liked[], disliked[], matched[]}，注册时创建；
+ *     setup.Findr 为方法容器 username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match）
+ * 纪律：地点跳转/标签清空/Findr 状态走 adapter 留痕；weather 只读；$findr 缺失拒绝写入。
  * ========================================================================== */
 "use strict";
 (function () {
@@ -773,6 +781,9 @@ window.mbCE_cot = {
     "SummitMarket", "ThoreauBuilding", "BangCoffee", "BlodgettGym",
     "HousingRoom", "YourDorm", "NutmegSt", "RiverRat",
   ];
+  // $findr 可编辑字段（玩家 Findr 状态；tags 有效值提示来自 setup.Findr.likes_tags 检查的标签集）
+  var FIND_FIELDS = [["name", "用户名"], ["tags", "主页标签"], ["liked", "已喜欢（NPC 名）"], ["disliked", "不喜欢（NPC 名）"], ["matched", "已匹配（NPC 名）"]];
+  var FIND_TAG_HINTS = ["Open", "Poly", "Romance", "Hookups", "Dominant", "Submissive", "Exhibitionist", "Voyeur"];
 
   function adapter() { return M.adapter; }
 
@@ -800,6 +811,38 @@ window.mbCE_cot = {
     var a = adapter();
     if (!a) { return { ok: false, reason: "no-adapter" }; }
     return a.writeVar("preencountertags", []);
+  }
+
+  // 逗号分隔文本 ↔ 数组（支持中英文逗号、去空白、去空项）
+  function parseList(s) {
+    if (s === undefined || s === null) { return []; }
+    return String(s).split(/[,，]/).map(function (x) { return x.trim(); }).filter(function (x) { return x !== ""; });
+  }
+  function formatList(arr) {
+    if (!arr || !Array.isArray(arr)) { return ""; }
+    return arr.join(", ");
+  }
+
+  function readFindr() {
+    var a = adapter();
+    if (!a) { return null; }
+    var f = a.readVar("findr");
+    return (f && typeof f === "object") ? f : null;
+  }
+
+  function writeFindrField(field, raw) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    if (raw === undefined || raw === null) { return { ok: false, reason: "empty" }; }
+    var f = readFindr();
+    if (!f) { return { ok: false, reason: "no-findr" }; }
+    if (field === "name") {
+      var v = String(raw).trim();
+      if (!v) { return { ok: false, reason: "empty" }; }
+      return a.writeVar("findr.name", v);
+    }
+    if (["tags", "liked", "disliked", "matched"].indexOf(field) < 0) { return { ok: false, reason: "empty" }; }
+    return a.writeVar("findr." + field, parseList(raw));
   }
 
   function renderPlace(box) {
@@ -861,7 +904,8 @@ window.mbCE_cot = {
     box.appendChild(pals);
 
     var weather = el("div", "mbce-group");
-    weather.appendChild(el("b", null, "天气（$weather 对象，只读）"));
+    weather.appendChild(el("b", null, "天气（$weather，只读）"));
+    weather.appendChild(el("p", "mbce-plain", "游戏时间推进会自动重建天气快照（V.weather = setup.Weather.state()），直改不持久，故只读。"));
     var wx = a.readVar("weather");
     if (wx && typeof wx === "object") {
       if (wx.todaysWeather !== undefined) { weather.appendChild(el("p", "mbce-plain", "今日：" + String(wx.todaysWeather))); }
@@ -900,20 +944,34 @@ window.mbCE_cot = {
     box.appendChild(last);
 
     var findr = el("div", "mbce-group");
-    findr.appendChild(el("b", null, "Findr（约会软件，setup 只读）"));
-    try {
-      var F = window.Setup && window.Setup.Findr;
-      if (F) {
-        var parts = [];
-        if (F.on_now !== undefined) { parts.push("on_now=" + String(F.on_now)); }
-        if (F.people_on && Array.isArray(F.people_on)) { parts.push("people_on=" + F.people_on.length); }
-        findr.appendChild(el("p", "mbce-plain", parts.length ? parts.join(" · ") : "（无运行数据）"));
-      } else {
-        findr.appendChild(el("p", "mbce-plain", "（setup.Findr 不可用）"));
-      }
-    } catch (e) {
-      findr.appendChild(el("p", "mbce-plain", "（读取失败）"));
+    findr.appendChild(el("b", null, "Findr 玩家状态（$findr）"));
+    var f = readFindr();
+    if (!f) {
+      findr.appendChild(el("p", "mbce-plain", "（未注册 —— 先在游戏内完成 Findr 注册，状态变量 $findr 才会创建）"));
+    } else {
+      FIND_FIELDS.forEach(function (kv) {
+        var field = kv[0], label = kv[1];
+        var row = el("div", "mbce-row");
+        row.appendChild(el("span", "mbce-row-label", label + "（findr." + field + "）"));
+        var inp = el("input", "mbce-in");
+        inp.type = "text";
+        var cur = f[field];
+        inp.value = (field === "name") ? String(cur === undefined || cur === null ? "" : cur) : formatList(cur);
+        row.appendChild(inp);
+        var btn = el("button", "mbce-btn", "保存");
+        btn.addEventListener("click", function () {
+          var r = writeFindrField(field, inp.value);
+          if (r && r.ok) {
+            inp.value = (field === "name") ? String(r.to) : formatList(r.to);
+          } else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+        });
+        row.appendChild(btn);
+        findr.appendChild(row);
+      });
+      findr.appendChild(el("p", "mbce-plain", "tags 可用值：" + FIND_TAG_HINTS.join(" / ") + "（数组字段用逗号分隔，如 Open, Romance）"));
     }
+    var note = el("p", "mbce-plain", "说明：setup.Findr 为方法容器（username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match），NPC 是否在线上由游戏实时计算，无需也不可直改。");
+    findr.appendChild(note);
     box.appendChild(findr);
     return true;
   }
@@ -923,6 +981,10 @@ window.mbCE_cot = {
     knownLocations: KNOWN_LOCATIONS,
     setLocation: setLocation,
     clearPreencounterTags: clearPreencounterTags,
+    parseList: parseList,
+    formatList: formatList,
+    readFindr: readFindr,
+    writeFindrField: writeFindrField,
     renderPlace: renderPlace,
     renderScene: renderScene,
   };

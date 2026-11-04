@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [0.6.3] - 2026-11-04
+
+- R5 场景/数值页增强（取证：scan13/scan13b 定向取证 setup.Weather / setup.Findr / $findr）：
+  - **Findr 玩家状态可编辑**：`$findr`（name/tags/liked/disliked/matched，逗号分隔文本↔数组，支持中英文逗号）；`$findr` 未注册时拒绝写入并提示（reason `no-findr`，i18n 已汉化）；页面说明 `setup.Findr` 为方法容器（username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match），NPC 在线状态由游戏实时计算不可直改。
+  - **天气边界明确**：`$weather` 由游戏时间推进重建快照（`V.weather = setup.Weather.state()`），直改不持久，保持只读并页面说明。
+  - **数值页分组折叠**：顶层数值与时间 / 技能 / 身体 / 需求四组 `<details>` 折叠块（默认展开）。
+- 单测扩至 39 项。
+
 ## [0.6.2] - 2026-11-04
 
 - R4 关系页增强：`relationship` 标签可编辑（已取证枚举提示 + 自定义文本，留空 = 清除）；展示带中文释义（挚友/炮友/相爱相杀/服从）；`M.rel.writeRelationship` + `relLabel`。单测扩至 36 项。

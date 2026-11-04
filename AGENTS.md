@@ -32,6 +32,7 @@
 - 测试纪律补充：vm 沙箱内创建的对象（数组等）跨 realm 原型不同，`assert.deepStrictEqual` 会误报「same structure but not reference-equal」——跨 realm 值改用语义断言（Array.isArray + length / 标量 ===）；render 路由测试的「未接管页」用不存在的 tab（`nope`）断言 fallback。
 - P6 回归（0.6.0）：7 源 `node --check` + 33 单测 + verifier 4/4 + SHA256 `651312F8...B68EE6F`；`dev.ps1` [1/3] 语法检查改为动态扫描全部 src/*.js（P6 回归修复，此前硬编码 3 文件漏检 04-07）；产物模块标记核验 M.i18n/mbCE_cot.data/mbStageCE/mbCE_wrote 就位（rel/places/eco 由单测直证）。发布待命：D4。
 - 0.6.1 优化：`M.i18n` 基础在 01-core（`t` 原文直通 + `reasons` 汉化表 + `reason(code)`：range:* 前缀动态汉化、未知码保底原样）；07 的 `eco.i18n` 引用 `M.i18n`（不再自建）；04/05/06 状态栏统一 `M.i18n.reason`。单测 35 项。`tools/pack.ps1` 的 `$order` 与 `tests/run-tests.js` 的 `ORDER` 必须同步（两侧均有注释）。
+- 0.6.3 补充取证与边界（scan13/scan13b.out.txt）：`setup.Weather = {}` 为方法容器（twine-user-script #73 weather.js）；`$weather` 在时间推进时被重建（`V.weather = setup.Weather.state()` 继承旧值）→ **直改 $weather 不持久，保持只读**。`setup.Findr = {}` 为方法容器（twine-user-script #5 findr.js：username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match，NPC 在线实时计算）；玩家 Findr 状态在 **`$findr`**（`{name,tags[],liked[],disliked[],matched[]}`，注册时创建，passage 用 push/delete 维护）→ 可编辑 `$findr` 字段（tags 有效值 Open/Poly/Romance/Hookups/Dominant/Submissive/Exhibitionist/Voyeur 来自 likes_tags 检查集）；`$findr` 缺失拒绝（reason `no-findr`）。数值页四组 `<details>` 折叠块（默认展开）。单测 39 项。
 - loader 另有 RemoteLoader 通道（远程 modList.json）；本机 HTTP 缺该文件会产生 SyntaxError 噪音，不影响 LocalStorage/IndexedDB 本地通道。
 - 消费端：`C:\Users\27352\Doubao\chats\2026-11-04\new-chat\cot-game\`；moli：`C:\Users\27352\AppData\Local\moli\moli-v1.1.19-x86_64-pc-windows-msvc\moli.exe`。
 

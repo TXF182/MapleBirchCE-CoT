@@ -73,7 +73,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.6.2");
+  assert.strictEqual(M.version, "0.6.3");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -137,7 +137,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.6.2");
+  assert.strictEqual(c.version, "0.6.3");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -149,7 +149,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.6.2");
+  assert.strictEqual(st.version, "0.6.3");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -448,6 +448,48 @@ test("R4: relationship 标签写入/清空/拒绝 + 中文释义", () => {
   r = R.writeRelationship("Nobody", "x");
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.reason, "no-person");
+});
+
+test("R5: $findr 字段写入（name + 数组）", () => {
+  const env = makeEnv(); loadAll(env);
+  const P = env.sandbox.mbCE_cot.places;
+  env.sandbox.State.variables.findr = { name: "abc", tags: [], liked: [], disliked: [], matched: [] };
+  let r = P.writeFindrField("name", "  myname ");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.findr.name, "myname", "trim");
+  r = P.writeFindrField("tags", "Open, Romance, Poly");
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual([...env.variables.findr.tags], ["Open", "Romance", "Poly"], "数组写入");
+  r = P.writeFindrField("liked", "Alice，Bob, ,Carol");
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual([...env.variables.findr.liked], ["Alice", "Bob", "Carol"], "中英文逗号+去空");
+  assert.strictEqual(P.formatList(env.variables.findr.liked), "Alice, Bob, Carol");
+  const emptyList = P.parseList("");
+  assert.ok(Array.isArray(emptyList) && emptyList.length === 0, "空串 → 空数组（跨 realm 语义断言）");
+});
+
+test("R5: $findr 缺失拒绝 + i18n 汉化", () => {
+  const env = makeEnv(); loadAll(env);
+  const P = env.sandbox.mbCE_cot.places;
+  const r = P.writeFindrField("tags", "Open");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "no-findr");
+  assert.strictEqual(env.sandbox.mbCE_cot.i18n.reason("no-findr"), "未注册 Findr（请先游戏内注册）");
+});
+
+test("R5: 数值页分组折叠（4 组 details）", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.pcskills = { Charisma: 100 };
+  const box = env.sandbox.document.createElement("div");
+  const ok = env.sandbox.mbCE_cot.data.render("stats", box);
+  assert.strictEqual(ok, true);
+  assert.strictEqual(box.children.length, 5, "提示 + 4 分组");
+  const titles = box.children.map(c => c.children[0] && c.children[0].textContent);
+  assert.ok(titles.some(t => t === "顶层数值与时间"), "TOP 组标题");
+  assert.ok(titles.some(t => t === "技能（$pcskills）"), "技能组标题");
+  assert.ok(titles.some(t => t === "身体（$pcstats）"), "身体组标题");
+  assert.ok(titles.some(t => t === "需求（$pcneeds）"), "需求组标题");
+  assert.ok(box.children.slice(1).every(c => c.open === "open"), "4 个分组默认展开");
 });
 
 let failed = 0;

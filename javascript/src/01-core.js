@@ -4,7 +4,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.2"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.6.3"; // 双源：boot.json version 必须一致
 
 window.mbCE_cot = {
   version: MCE_VERSION,
@@ -28,6 +28,7 @@ window.mbCE_cot = {
       "empty": "值为空",
       "nan": "非数字",
       "no-person": "该对象不存在",
+      "no-findr": "未注册 Findr（请先游戏内注册）",
       "parent-missing": "父级键缺失",
     },
     reason: function (code) {

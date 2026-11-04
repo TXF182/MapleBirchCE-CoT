@@ -102,25 +102,29 @@
   function renderStats(box) {
     var a = adapter();
     if (!a) { box.appendChild(el("p", "mbce-plain", "适配层未就绪")); return true; }
-    var s = el("p", "mbce-plain", "写入即时生效并留痕 $mbCE_wrote；读档可回退。");
-    box.appendChild(s);
-    // 顶层数值 + 时间
-    var topBox = el("div", "mbce-group");
+    box.appendChild(el("p", "mbce-plain", "写入即时生效并留痕 $mbCE_wrote；读档可回退。"));
+    // 分组折叠：每组一个 <details open>，标题可点击收起/展开
+    function groupBlock(title) {
+      var det = el("details");
+      det.open = "open";
+      det.appendChild(el("summary", null, title));
+      var body = el("div", "mbce-group");
+      det.appendChild(body);
+      box.appendChild(det);
+      return body;
+    }
+    var topBody = groupBlock("顶层数值与时间");
     Object.keys(TOP).forEach(function (k) {
       var meta = TOP[k];
       var cur = a.readVar(meta.path);
-      topBox.appendChild(rowEl(meta.label + "（" + meta.path + "）", cur, function (raw) { return applyEdit(k, null, raw); }));
+      topBody.appendChild(rowEl(meta.label + "（" + meta.path + "）", cur, function (raw) { return applyEdit(k, null, raw); }));
     });
-    box.appendChild(topBox);
-    // 组
     GROUPS.forEach(function (g) {
-      var gBox = el("div", "mbce-group");
-      gBox.appendChild(el("b", null, g.label + "（" + g.path + "）"));
+      var body = groupBlock(g.label + "（$" + g.path + "）");
       var base = readGroup(g.path);
       g.keys.forEach(function (kv) {
-        gBox.appendChild(rowEl(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }));
+        body.appendChild(rowEl(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }));
       });
-      box.appendChild(gBox);
     });
     return true;
   }
