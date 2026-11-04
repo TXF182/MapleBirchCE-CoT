@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [0.6.2] - 2026-11-04
+
+- R4 关系页增强：`relationship` 标签可编辑（已取证枚举提示 + 自定义文本，留空 = 清除）；展示带中文释义（挚友/炮友/相爱相杀/服从）；`M.rel.writeRelationship` + `relLabel`。单测扩至 36 项。
+
 ## [0.6.1] - 2026-11-04
 
 - R1 汉化优化：`M.i18n.reason` 错误码汉化表（no-adapter/empty/nan/no-person/parent-missing/range:* → 中文提示），04/05/06 状态栏统一走汉化；07 生态层引用 01-core 的 i18n 基础。单测扩至 35 项。

@@ -6,7 +6,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.1"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.6.2"; // 双源：boot.json version 必须一致
 
 window.mbCE_cot = {
   version: MCE_VERSION,
@@ -566,7 +566,8 @@ window.mbCE_cot = {
  *   $people[NPC].attitude = 数值轴对象：attitude["friendship"|"romance"|"lust"]
  *     （setup.people.set_attitude 写入；alter_attitude 范围 clamp -1000..1000；
  *      romance 上限实际受 setup.Relationships.max_romance 约束，P3 通用 -1000..1000）
- *   $people[NPC].relationship = 关系标签（best friend / fuckbuddy / hatefuck / submissive，只读展示）
+ *   $people[NPC].relationship = 关系标签（best friend / fuckbuddy / hatefuck / submissive，
+ *     可编辑：枚举快捷提示 + 自定义文本，展示带中文释义；partner 仍只读）
  *   $people[NPC].partnerType / .partner = 恋爱状态（partner=="PC" 表示与玩家恋爱，只读展示）
  *   $crush = PC 暗恋对象 NPC 名（可编辑/清空）
  * 纪律：写入走 adapter.writeVar 留痕；attitude 容器缺失时先建容器再写子键；
@@ -580,6 +581,19 @@ window.mbCE_cot = {
   var D = M.data;
   var ATT_TYPES = [["friendship", "友谊"], ["romance", "恋爱"], ["lust", "性欲"]];
   var RANGE_MIN = -1000, RANGE_MAX = 1000;
+  // 已取证枚举（scan11b 实证样本；游戏可能含更多值，编辑用自定义文本兜底）
+  var REL_LABELS = {
+    "best friend": "挚友",
+    "fuckbuddy": "炮友",
+    "hatefuck": "相爱相杀",
+    "submissive": "服从",
+  };
+  var REL_HINTS = ["best friend", "fuckbuddy", "hatefuck", "submissive"];
+
+  function relLabel(v) {
+    if (v === undefined || v === null || v === "") { return "（无标签）"; }
+    return (REL_LABELS[v] !== undefined) ? v + "（" + REL_LABELS[v] + "）" : v;
+  }
 
   function adapter() { return M.adapter; }
 
@@ -616,6 +630,16 @@ window.mbCE_cot = {
     if (!a) { return { ok: false, reason: "no-adapter" }; }
     var v = (name === undefined || name === null) ? "" : String(name).trim();
     return a.writeVar("crush", v);
+  }
+
+  function writeRelationship(person, raw) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    if (raw === undefined || raw === null) { return { ok: false, reason: "empty" }; }
+    var v = String(raw).trim(); // 空串 = 清空标签
+    var base = a.readVar("people." + person);
+    if (!base || typeof base !== "object") { return { ok: false, reason: "no-person" }; }
+    return a.writeVar("people." + person + ".relationship", v);
   }
 
   function rowEl(label, value, onSave) {
@@ -672,7 +696,7 @@ window.mbCE_cot = {
     list.forEach(function (p) {
       var g = el("div", "mbce-group");
       var head = p.name;
-      if (p.relationship !== undefined) { head += " · " + p.relationship; }
+      if (p.relationship !== undefined) { head += " · " + relLabel(p.relationship); }
       if (p.special) { head += " · 特殊"; }
       g.appendChild(el("b", null, head));
       var info = a.readVar("people." + p.name);
@@ -682,6 +706,21 @@ window.mbCE_cot = {
         if (info.partner !== undefined) { pts.push("partner=" + info.partner); }
         if (pts.length) { g.appendChild(el("p", "mbce-plain", pts.join(" · "))); }
       }
+      var relRow = el("div", "mbce-row");
+      relRow.appendChild(el("span", "mbce-row-label", "关系标签（relationship）"));
+      var relInp = el("input", "mbce-in");
+      relInp.type = "text";
+      relInp.value = (info && info.relationship !== undefined) ? String(info.relationship) : "";
+      relRow.appendChild(relInp);
+      var relBtn = el("button", "mbce-btn", "保存");
+      relBtn.addEventListener("click", function () {
+        var r = writeRelationship(p.name, relInp.value);
+        if (r && r.ok) { relInp.value = String(r.to); }
+        else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+      });
+      relRow.appendChild(relBtn);
+      g.appendChild(relRow);
+      g.appendChild(el("p", "mbce-plain", "可选标签：" + REL_HINTS.join(" / ") + "（可自定义，留空 = 清除）"));
       var att = null;
       if (info && info.attitude && typeof info.attitude === "object") { att = info.attitude; }
       ATT_TYPES.forEach(function (kv) {
@@ -696,6 +735,8 @@ window.mbCE_cot = {
     version: M.version,
     writeAttitude: writeAttitude,
     setCrush: setCrush,
+    writeRelationship: writeRelationship,
+    relLabel: relLabel,
     render: renderRel,
   };
 

@@ -73,7 +73,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.6.1");
+  assert.strictEqual(M.version, "0.6.2");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -137,7 +137,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.6.1");
+  assert.strictEqual(c.version, "0.6.2");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -149,7 +149,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.6.1");
+  assert.strictEqual(st.version, "0.6.2");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -428,6 +428,26 @@ test("R1: i18n.reason 汉化表", () => {
 test("R1: 生态层引用 01-core 的 i18n", () => {
   const env = makeEnv(); loadAll(env);
   assert.strictEqual(env.sandbox.mbCE_cot.eco.i18n, env.sandbox.mbCE_cot.i18n);
+});
+
+test("R4: relationship 标签写入/清空/拒绝 + 中文释义", () => {
+  const env = makeEnv(); loadAll(env);
+  const R = env.sandbox.mbCE_cot.rel;
+  env.sandbox.State.variables.people = { "Alice": { attitude: {} } };
+  let r = R.writeRelationship("Alice", "fuckbuddy");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.sandbox.State.variables.people.Alice.relationship, "fuckbuddy");
+  assert.strictEqual(R.relLabel("fuckbuddy"), "fuckbuddy（炮友）");
+  assert.strictEqual(R.relLabel("best friend"), "best friend（挚友）");
+  assert.strictEqual(R.relLabel("自定义值"), "自定义值", "未知值原样");
+  assert.strictEqual(R.relLabel(""), "（无标签）");
+  assert.strictEqual(R.relLabel(undefined), "（无标签）");
+  r = R.writeRelationship("Alice", "   ");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.sandbox.State.variables.people.Alice.relationship, "", "空串=清空");
+  r = R.writeRelationship("Nobody", "x");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "no-person");
 });
 
 let failed = 0;
