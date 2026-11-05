@@ -472,8 +472,10 @@
     function inclChips(keys, host, useZh) {
       keys.forEach(function (k) {
         var zh = (M.inclZh && M.inclZh[k]) || "";
-        var c = el("button", "mbce-chip", (useZh && zh) ? zh : k);
-        c.title = (useZh ? k : (zh || k));
+        var label = (useZh === "both") ? (zh ? (zh + "（" + k + "）") : k)
+          : ((useZh && zh) ? zh : k);
+        var c = el("button", "mbce-chip", label);
+        c.title = zh ? (zh + " / " + k) : k;
         c.setAttribute("data-inc", k);
         c.addEventListener("click", function () {
           var arr = readInc();
@@ -494,13 +496,24 @@
       });
     }
     pc.appendChild(el("p", "mbce-plain", "常用倾向（中文，点选即时保存）"));
-    inclChips(Object.keys(M.inclZh || {}), commonHost, true);
+    inclChips((M.inclCommon || Object.keys(M.inclZh || {})), commonHost, true);
     pc.appendChild(commonHost);
     var incDet = el("details");
-    incDet.appendChild(el("summary", null, "完整倾向清单（游戏内 " + gameInclKeys().length + " 项，英文键）"));
+    incDet.appendChild(el("summary", null, "完整倾向清单（游戏内 " + gameInclKeys().length + " 项，中文名 + 英文键）"));
     var incDetBody = el("div", "mbce-group");
-    incDetBody.appendChild(el("p", "mbce-plain", "英文键为游戏原始键名（专名不译）；中文释义见游戏「角色倾向 → 完整倾向清单」页。"));
-    inclChips(gameInclKeys(), allHost, false);
+    incDetBody.appendChild(el("p", "mbce-plain", "98 项全部带中文名（CE 自建语义译名，游戏侧无对应中文词条）；括号内为游戏原始键，写入时用键名。"));
+    // R15 懒渲染：98 chip 在首次展开时才构建，避免角色页首次进入即卡顿
+    var builtAll = false;
+    function buildAllChips() {
+      if (builtAll) { return; }
+      builtAll = true;
+      inclChips(gameInclKeys(), allHost, "both");
+      refreshInc();
+    }
+    incDet._mbceBuild = buildAllChips; // 暴露给单测（测试桩 addEventListener 为 no-op）
+    incDet.addEventListener("toggle", function () {
+      if (incDet.open) { buildAllChips(); }
+    });
     incDetBody.appendChild(allHost);
     incDet.appendChild(incDetBody);
     pc.appendChild(incDet);

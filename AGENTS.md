@@ -72,3 +72,13 @@
 - **文案会腐烂**：`setup.mbStageCE.stage`、关于页「骨架版」、决策行「D4 先不发」都属同类残留——扫陈旧文案时按「阶段标记 / 决策 / 版本号」三类关键词全库 grep（`骨架|P1|先不发|调试面板|D4`）。
 - **版本号**：UI 文案一律读 `M.version`，不再手写。
 - 单测 71 项；自检归档 `.selfcheck/r14-selfscan.txt`。
+## R15 记录（0.7.2，用户反馈四条）
+
+- **切页卡顿**：修复手段是「页签 DOM 缓存 + 摘挂复用」，不是减少内容。`renderContent` 里 `renderedTab` 记录当前页、`tabCache` 存子节点数组、`tabStale` 标记脏页；切走时 `snapshot` 留节点、切回 `restoreCache` 复挂。`clearBox` 要同时处理真实 DOM（removeChild 循环）与测试桩（`children.length = 0`）。
+- **置脏策略**：写入成功 → `invalidateOthers(当前页)`；打开面板 → `invalidate()` 全清。只清一个方向会要么显示陈旧值、要么缓存永不命中。
+- **懒渲染钩子**：`details` 内的重块（98 倾向 chip / NPC 全字段 JSON / Findr JSON）在 `toggle` 首展开时构建；测试桩 `addEventListener` 是 no-op，因此实现挂了 `node._mbceBuild` 供单测直接调用——没有这个钩子，懒渲染部分不可测。
+- **倾向中文**：i18n 全量搜 `Open Relationships`/`Insecure`/`Polyamorous` **0 命中**，说明游戏侧倾向名从未汉化；98 项中文只能 CE 自建译名。别再尝试从 i18n 抽倾向名。
+- **地点中文**：可行路径是 i18n `typeB.TypeBOutputText` 里 `"<passageKey>": {name: "…"`（`database_maps.js`），12/13 命中；`Campus` 的 name 在独立条目 `name: "校园"`，`HousingRoom` 无 name。
+- **FAB 拖拽**：`touchstart` **不能** `preventDefault`（否则浏览器不再派发 click，点按开合失效）；只在 `touchmove` 里 prevent。FAB 需 `touch-action:none`。拖动阈值 6px + `fabMoved` 抑制 click。
+- **常/全两套表**：`M.inclCommon`（20 项快选）与 `M.inclZh`（98 项全量）分开——扩充 `inclZh` 时不能直接把它当常用区，否则角色页一次铺 98 个 chip。
+- 单测 76 项；自检归档 `.selfcheck/r15-perf-i18n-fab.txt`。

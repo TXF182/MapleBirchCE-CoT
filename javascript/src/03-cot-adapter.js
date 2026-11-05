@@ -71,6 +71,8 @@
       // R14：留痕上限 200 条，防存档无限膨胀（保留最近记录）
       if (s.mbCE_wrote.length > 200) { s.mbCE_wrote = s.mbCE_wrote.slice(-200); }
     } catch (e) {}
+    // R15：任何写入成功 → 其它页签 DOM 缓存置脏（切过去时重建，当前页保留）
+    try { if (M.shell && typeof M.shell.invalidateOthers === "function") { M.shell.invalidateOthers(M.shell.activeTab && M.shell.activeTab()); } } catch (e3) {}
     return { ok: true, key: path, from: before, to: value };
   }
 

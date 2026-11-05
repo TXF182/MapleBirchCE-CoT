@@ -19,6 +19,7 @@
   var uiFontKey = CID + "_ui_font"; // 字号设置（R7）
   var uiPosKey = CID + "_ui_pos"; // 面板位置记忆（R9）
   var uiWidthKey = CID + "_ui_width"; // 面板宽度偏好（R11）
+  var uiFabKey = CID + "_ui_fab"; // 悬浮球位置记忆（R15）
   var FONTS = ["12px", "13px", "14px", "15px", "16px"];
   var fontIdx = 2;
   var WIDTHS = ["300px", "340px", "380px"];
@@ -60,7 +61,7 @@
     if (document.getElementById(cssId)) { return; }
     var css = [
       "#" + rootId + " * { box-sizing: border-box; }",
-      "#" + fabId + " { position: fixed; right: 22px; bottom: 22px; z-index: 2147483001; width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg,#f5d76e,#c9a227); color:#5a4300; font: 700 15px/52px Arial, sans-serif; text-align: center; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.35); user-select: none; }",
+      "#" + fabId + " { position: fixed; right: 22px; bottom: 22px; z-index: 2147483001; width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg,#f5d76e,#c9a227); color:#5a4300; font: 700 15px/52px Arial, sans-serif; text-align: center; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.35); user-select: none; touch-action: none; }",
       "#" + fabId + ":hover { filter: brightness(1.08); }",
       "#" + panelId + " { position: fixed; right: 22px; bottom: 84px; z-index: 2147483000; width: 340px; max-height: 72vh; overflow: hidden; background: #fdfaf1; color: #3a2c10; border: 1px solid #d9c27a; border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.4); font: 14px/1.6 Arial, sans-serif; display: none; flex-direction: column; }",
       "#" + panelId + ".open { display: flex; }",
@@ -106,22 +107,67 @@
     return n;
   }
 
+  // R15 渲染缓存：页签首次构建后把 DOM 子节点留存，切走只做「摘挂」不重建；
+  // 写入/打开面板时置脏，脏页下次进入才重建。这是「切页卡顿」的主修复。
+  var tabCache = {};
+  var tabStale = {};
+  var renderedTab = null;
+
+  function clearBox(box) {
+    if (!box) { return; }
+    if (box.firstChild !== undefined && box.firstChild !== null) {
+      while (box.firstChild) { box.removeChild(box.firstChild); }
+    }
+    if (box.children && typeof box.children.length === "number") { box.children.length = 0; }
+    try { box.innerHTML = ""; } catch (e) {}
+  }
+  function snapshot(tabId) {
+    if (!tabId || !state.content) { return; }
+    tabCache[tabId] = Array.prototype.slice.call(state.content.children || []);
+  }
+  function restoreCache(box, tabId) {
+    var kids = tabCache[tabId];
+    if (!kids || !kids.length) { return false; }
+    clearBox(box);
+    for (var i = 0; i < kids.length; i++) { box.appendChild(kids[i]); }
+    return true;
+  }
+  function invalidate(tabId) {
+    if (tabId) { tabStale[tabId] = true; return; }
+    tabCache = {}; tabStale = {}; renderedTab = null;
+  }
+  // R15：写入成功后只把「非当前页」置脏——当前页 DOM 里就是用户刚改的值，无需重建
+  function invalidateOthers(cur) {
+    for (var k in tabCache) {
+      if (tabCache.hasOwnProperty(k) && k !== cur) { tabStale[k] = true; }
+    }
+  }
+
   function renderContent(tabId) {
     var box = state.content;
     if (!box) { return; }
     var tab = TABS.filter(function (t) { return t.id === tabId; })[0];
-    box.innerHTML = "";
-    if (tab && typeof tab.render === "function") {
-      try {
-        if (tab.render(box)) { return; }
-      } catch (e) {
-        // R14 健壮性：单页渲染异常不应让面板空白
-        box.appendChild(el("p", "mbce-plain", "本页渲染出错：" + ((e && e.message) || "未知")));
-        box.appendChild(el("p", "mbce-plain", "可切换其它页签继续使用；把此信息反馈即可定位。"));
-        return;
-      }
+    // 同页重复渲染：丢弃本页缓存，强制重建
+    if (renderedTab === tabId) { tabCache[tabId] = undefined; }
+    if (!tabStale[tabId] && restoreCache(box, tabId)) {
+      renderedTab = tabId;
+      M.perf.cacheHit = (M.perf.cacheHit || 0) + 1;
+      return;
     }
-    if (tabId === "about") {
+    if (renderedTab && renderedTab !== tabId) { snapshot(renderedTab); }
+    clearBox(box);
+    var t0 = (new Date()).getTime();
+    var outNodes = [];
+    try {
+      if (tab && typeof tab.render === "function") { tab.render(box); }
+      outNodes = Array.prototype.slice.call(box.children || []);
+    } catch (e) {
+      // R14 健壮性：单页渲染异常不应让面板空白
+      box.appendChild(el("p", "mbce-plain", "本页渲染出错：" + ((e && e.message) || "未知")));
+      box.appendChild(el("p", "mbce-plain", "可切换其它页签继续使用；把此信息反馈即可定位。"));
+      outNodes = Array.prototype.slice.call(box.children || []);
+    }
+    if (tabId === "about" && outNodes.length === 0) {
       box.appendChild(el("p", "mbce-plain", "MapleBirch CE · CoT 作弊面板"));
       var fold = el("details", "mbce-fold");
       var sum = el("summary", null, "关于本版本");
@@ -135,10 +181,18 @@
       ].join("\n");
       fold.appendChild(el("p", null, info));
       box.appendChild(fold);
-      return;
+      outNodes = Array.prototype.slice.call(box.children || []);
     }
-    var map = { char: "角色页（P2 数值/角色页实现）", stats: "数值页（P2 实现）", rel: "关系页（P3 实现）", place: "地点页（P4 实现）", scene: "场景页（P4 实现）" };
-    box.appendChild(el("p", "mbce-plain", "「" + TABS.filter(function (t) { return t.id === tabId; })[0].label + "」" + (map[tabId] || "待实现")));
+    if (!outNodes.length && tabId !== "about") {
+      var map = { char: "角色页（P2 数值/角色页实现）", stats: "数值页（P2 实现）", rel: "关系页（P3 实现）", place: "地点页（P4 实现）", scene: "场景页（P4 实现）" };
+      box.appendChild(el("p", "mbce-plain", "「" + (tab ? tab.label : tabId) + "」" + (map[tabId] || "待实现")));
+      outNodes = Array.prototype.slice.call(box.children || []);
+    }
+    tabCache[tabId] = outNodes;
+    tabStale[tabId] = false;
+    renderedTab = tabId;
+    M.perf.cacheMiss = (M.perf.cacheMiss || 0) + 1;
+    M.perf.lastBuildMs = (new Date()).getTime() - t0;
   }
 
   function activateTab(tabId) {
@@ -280,13 +334,82 @@
     if (saved === "on") { toggle(true); }
   }
 
+  // R15 悬浮球可拖动：位置持久化 + 视口内 clamp；拖动阈值 6px 以免与「点按开合」冲突
+  var fabDrag = null;
+  var fabMoved = false;
+  function clampToView(L, T, w, h) {
+    var W = (window.innerWidth || 0), H = (window.innerHeight || 0);
+    var maxL = W ? Math.max(0, W - w) : L;
+    var maxT = H ? Math.max(0, H - h) : T;
+    return { left: Math.min(Math.max(0, L), maxL), top: Math.min(Math.max(0, T), maxT) };
+  }
+  function fabApplyPos(fab, L, T) {
+    var w = fab.offsetWidth || 48, h = fab.offsetHeight || 48;
+    var c = clampToView(L, T, w, h);
+    fab.style.left = c.left + "px";
+    fab.style.top = c.top + "px";
+    fab.style.right = "auto";
+    fab.style.bottom = "auto";
+    return c;
+  }
   function buildFab() {
     if (state.fab) { return; }
     var fab = el("div");
     fab.id = fabId;
     fab.textContent = "CE";
-    fab.title = "MapleBirch CE · CoT v" + M.version + "（点按开合面板）";
-    fab.addEventListener("click", function () { toggle(); });
+    fab.title = "MapleBirch CE · CoT v" + M.version + "（点按开合面板，按住拖动可换位置）";
+    // 位置恢复（R15）：越界则丢弃
+    try {
+      var sp = localStorage.getItem(uiFabKey);
+      if (sp) {
+        var fp = JSON.parse(sp);
+        var L = parseFloat(fp && fp.left), T = parseFloat(fp && fp.top);
+        if (!isNaN(L) && !isNaN(T)) {
+          var ok = (window.innerWidth ? L <= window.innerWidth - 24 : true) &&
+            (window.innerHeight ? T <= window.innerHeight - 24 : true);
+          if (ok) { fab.style.left = L + "px"; fab.style.top = T + "px"; fab.style.right = "auto"; fab.style.bottom = "auto"; }
+          else { try { localStorage.removeItem(uiFabKey); } catch (e1) {} }
+        }
+      }
+    } catch (e) {}
+    function onFabDown(e) {
+      var p = dragPt(e);
+      if (!p || p.clientX === undefined) { return; }
+      var r = (typeof fab.getBoundingClientRect === "function")
+        ? fab.getBoundingClientRect() : { left: 0, top: 0 };
+      fabDrag = { x: p.clientX, y: p.clientY, left: r.left || 0, top: r.top || 0, moved: false };
+      // 注意：这里不能 preventDefault，否则 touch 之后浏览器不再派发 click，点按开合会失效
+    }
+    function onFabMove(e) {
+      if (!fabDrag) { return; }
+      var p = dragPt(e);
+      if (!p || p.clientX === undefined) { return; }
+      var dx = p.clientX - fabDrag.x, dy = p.clientY - fabDrag.y;
+      if (!fabDrag.moved && (Math.abs(dx) + Math.abs(dy) < 6)) { return; }
+      fabDrag.moved = true;
+      fabMoved = true;
+      fabApplyPos(fab, fabDrag.left + dx, fabDrag.top + dy);
+      if (e.cancelable && typeof e.preventDefault === "function") { try { e.preventDefault(); } catch (e1) {} }
+    }
+    function onFabUp() {
+      if (!fabDrag) { return; }
+      var moved = fabDrag.moved;
+      fabDrag = null;
+      if (moved) {
+        try { localStorage.setItem(uiFabKey, JSON.stringify({ left: fab.style.left, top: fab.style.top })); } catch (e) {}
+        if (state.status) { state.status.textContent = "悬浮球位置已保存：" + fab.style.left + ", " + fab.style.top; }
+      }
+    }
+    fab.addEventListener("mousedown", onFabDown);
+    fab.addEventListener("touchstart", onFabDown);
+    fab.addEventListener("click", function () {
+      if (fabMoved) { fabMoved = false; return; }
+      toggle();
+    });
+    document.addEventListener("mousemove", onFabMove);
+    document.addEventListener("mouseup", onFabUp);
+    document.addEventListener("touchmove", onFabMove, { passive: false });
+    document.addEventListener("touchend", onFabUp);
     document.body.appendChild(fab);
     state.fab = fab;
   }
@@ -294,7 +417,12 @@
   function toggle(force) {
     if (!state.panel) { return; }
     var open = force !== undefined ? !!force : !state.panel.classList.contains("open");
-    if (open) { state.panel.classList.add("open"); } else { state.panel.classList.remove("open"); }
+    if (open) {
+      state.panel.classList.add("open");
+      // R15：每次打开面板刷新数据，丢弃所有页签 DOM 缓存（避免显示陈旧值）
+      invalidate();
+      renderContent(state.activeTab || "char");
+    } else { state.panel.classList.remove("open"); }
     try { localStorage.setItem(uiLsKey, open ? "on" : "off"); } catch (e) {}
     updateBadge();
     return open;
@@ -386,6 +514,11 @@
     fontSize: function () { return FONTS[fontIdx]; },
     setWidth: setWidth,
     panelWidth: function () { return WIDTHS[widthIdx]; },
+    invalidate: invalidate,
+    invalidateOthers: invalidateOthers,
+    perf: function () { return M.perf; },
+    content: function () { return state.content; },
+    clampFab: clampToView, // 悬浮球/面板坐标 clamp（单测用）
     statusEl: null,
     tabs: TABS,
   };

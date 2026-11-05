@@ -76,9 +76,17 @@
       if (chk) { diag.appendChild(el("p", "mbce-plain", "适配器：目录 " + (chk.catalog ? Object.keys(chk.catalog).length : 0) + " 键 · 留痕 $mbCE_wrote=" + (chk.wroteCount !== undefined ? chk.wroteCount : "?") + " 次")); }
     } catch (e) {}
     try {
-      var keys = ["mbCE_cot_ui", "mbCE_cot_ui_tab", "mbCE_cot_ui_font", "mbCE_cot_ui_pos", "mbCE_cot_ui_stats", "mbCE_cot_ui_rel", "mbCE_cot_ui_width"];
-      diag.appendChild(el("p", "mbce-plain", "UI 偏好：" + keys.filter(function (k) { return localStorage.getItem(k) !== null; }).join(" / ") || "（无）"));
+      var keys = ["mbCE_cot_ui", "mbCE_cot_ui_tab", "mbCE_cot_ui_font", "mbCE_cot_ui_pos", "mbCE_cot_ui_stats", "mbCE_cot_ui_rel", "mbCE_cot_ui_width", "mbCE_cot_ui_fab"];
+      diag.appendChild(el("p", "mbce-plain", "UI 偏好：" + (keys.filter(function (k) { return localStorage.getItem(k) !== null; }).join(" / ") || "（无）")));
     } catch (e) {}
+    // R15：渲染缓存统计（切页是否命中缓存 / 上次构建耗时），用于定位卡顿
+    try {
+      var pf = (M.shell && typeof M.shell.perf === "function") ? M.shell.perf() : null;
+      if (pf) {
+        diag.appendChild(el("p", "mbce-plain", "渲染缓存：命中 " + (pf.cacheHit || 0) + " 次 · 重建 " + (pf.cacheMiss || 0) + " 次 · 上次构建 " + (pf.lastBuildMs || 0) + " ms"));
+        diag.appendChild(el("p", "mbce-plain", "页签切换采用 DOM 缓存（切回不重建）；大块内容（98 倾向清单 / NPC 全字段 JSON / Findr 全字段）展开时才生成。"));
+      }
+    } catch (e2) {}
     box.appendChild(diag);
 
     var dep = el("div", "mbce-group");

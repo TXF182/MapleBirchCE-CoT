@@ -6,7 +6,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.7.1"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.7.2"; // 双源：boot.json version 必须一致
 
 // R13 中文词表（来源：游戏 setup.* 键 + ModI18N 中文对照；专名保留英文键作 tooltip）
 const MCE_SKILL_ZH = {
@@ -15,12 +15,54 @@ const MCE_SKILL_ZH = {
   "Hand": "手技", "Oral": "口技", "Vaginal": "阴道", "Anal": "肛", "Physical": "体能",
   "Intellectual": "智力", "Artistic": "艺术", "Photography": "摄影", "Masturbation": "自慰",
 };
-const MCE_INCL_ZH = { // 常用倾向中文（其余 98 键为游戏专名，保留英文 + 完整清单见游戏「角色倾向」页）
-  "Open Relationships": "开放关系", "Polyamorous": "多元恋", "Demisexual": "半性恋",
-  "Asexual": "无性恋", "Aromantic": "无浪漫", "Insecure": "不自信", "Shy": "害羞",
-  "Confident": "自信", "Kind": "善良", "Loyal": "忠诚", "Gregarious": "合群", "Loner": "独行",
-  "Vegetarian": "素食", "Vegan": "纯素", "Pescetarian": "鱼素", "Cheater": "不忠",
-  "Particular": "挑剔", "Pleaser": "讨好型", "Careful": "谨慎", "Eager": "热切",
+const MCE_INCL_ZH = { // R15：98 键全量中文（游戏侧无中文词条，本表为 CE 自建语义译名；值即游戏 setup.inclinations 键）
+  "Lewd Exhibitionist": "淫荡暴露者", "Cautious Exhibitionist": "谨慎暴露者",
+  "Proud Exhibitionist": "骄傲暴露者", "Helpless Exhibitionist": "无助暴露者",
+  "Dogging Enthusiast": "野合爱好者", "Forward": "主动", "Dominant": "支配",
+  "Accommodating": "配合顺从", "Submissive": "顺从", "Free Use": "任人取用",
+  "Dominant Vibe": "支配气场", "Soft Dom": "温和支配", "Hard to Resist": "难以抗拒",
+  "Submissive Vibe": "顺从气场", "Brat": "顽劣撒娇", "Switch": "攻受皆可",
+  "Masochist": "受虐癖", "Sadist": "施虐癖", "Humiliation Kink": "羞辱癖",
+  "Risktaker": "冒险者", "Breeding Kink": "播种癖", "Careful": "谨慎",
+  "Cumslut": "精液瘾", "Facializer": "颜射癖", "Seen It All": "见多识广",
+  "Voyeur": "窥淫癖", "Peeper": "偷窥者", "Intimate Witness": "亲密旁观者",
+  "Squirter": "潮吹", "Pee-Squirter": "喷尿", "Watersports Enthusiast": "黄金浴爱好者",
+  "Golden Showerer": "黄金浴受体", "Overactive Bladder": "膀胱敏感", "Breaker": "破防者",
+  "Attentive Lover": "体贴情人", "Hair Trigger": "一点就着", "Takes Patience": "需耐心",
+  "Edgemaster": "边缘控制", "Tantric Willpower": "坦陀罗意志", "Eager": "热切",
+  "Anal Fetish": "肛交癖", "Oral Fixation": "口交癖", "Sensitive Nipples": "敏感乳头",
+  "Foot Enthusiast": "恋足", "Fuckbuddy": "炮友", "Casual Hookup": "随意约炮",
+  "Hatefuck": "恨意性爱", "Slut": "淫妇", "Always Horny": "永远发情",
+  "Chaste": "守贞", "Nature Prevails": "本性难移", "Whore": "娼妇",
+  "Findom": "财务支配", "Whore Connoisseur": "娼妓鉴赏家", "Paypig": "付款猪",
+  "Taker": "索取者", "Target": "被索取者", "Underwear Connoisseur": "内衣鉴赏家",
+  "Natural Odor": "自然体味", "Loner": "独行者", "Gregarious": "群居动物",
+  "Pleaser": "讨好型", "Particular": "挑剔", "Confident": "自信",
+  "Insecure": "不自信", "Shy": "害羞", "Stoner": "飞叶子",
+  "Toy Enthusiast": "玩具爱好者", "Fur Enthusiast": "兽人爱好者", "Bully": "欺凌者",
+  "Kind": "善良", "Trichophilia": "恋发癖", "Slob": "邋遢",
+  "Cheater": "不忠", "Loyal": "忠诚", "Retail Therapy": "购物疗法",
+  "Lucky": "幸运", "Unlucky": "倒霉", "Iron Will": "钢铁意志",
+  "Easily Pressured": "易被施压", "Asexual": "无性恋", "Aromantic": "无浪漫",
+  "Polyamorous": "多元恋", "Open Relationships": "开放关系", "Demisexual": "半性恋",
+  "Pescetarian": "鱼素", "Vegetarian": "素食", "Vegan": "纯素",
+  "Likes Standing Position": "喜站姿", "Likes Doggy Style": "喜后入",
+  "Likes Missionary": "喜传教士", "Likes Spooning": "喜侧卧", "Likes Cowgirl": "喜女上",
+  "Knowledge from Eden": "伊甸之知", "Knowledge from the Deep": "深渊之知",
+  "Chicken or the Egg": "先有鸡还是先有蛋", "No Rest for the Wicked": "恶人无宁日",
+  "Earned Reward": "应得奖赏",
+};
+const MCE_INCL_COMMON = [ // R15：常用倾向（角色页默认展示的 20 项；完整 98 项在「完整倾向清单」折叠里）
+  "Open Relationships", "Polyamorous", "Demisexual", "Asexual", "Aromantic",
+  "Insecure", "Shy", "Confident", "Kind", "Loyal",
+  "Gregarious", "Loner", "Vegetarian", "Vegan", "Pescetarian",
+  "Cheater", "Particular", "Pleaser", "Careful", "Eager",
+];
+const MCE_LOC_ZH = { // R15：地点 passage 专名 → 中文显示名（来源：ModI18N database_maps.js 的 name 字段实测）
+  "Campus": "校园", "ChamberlainHall": "钱伯兰大厅", "EmersonBuilding": "埃默森大楼",
+  "HallowellBuilding": "哈洛韦尔大楼", "SmithLibrary": "史密斯图书馆", "SummitMarket": "顶峰市场",
+  "ThoreauBuilding": "梭罗大楼", "BangCoffee": "邦咖啡", "BlodgettGym": "布洛杰特体育馆",
+  "HousingRoom": "", "YourDorm": "你的宿舍", "NutmegSt": "豆蔻街", "RiverRat": "河鼠",
 };
 const MCE_CAT_ZH = { // 人物分类（对应游戏「人物」面板原版 tab）
   "fav": "⭐ 关注的人", "rom": "♥ 浪漫伴侣", "crush": "💘 暗恋", "friend": "😊 朋友",
@@ -40,7 +82,11 @@ window.mbCE_cot = {
   // R13 中文词表（供各页渲染用）
   skillZh: MCE_SKILL_ZH,
   inclZh: MCE_INCL_ZH,
+  inclCommon: MCE_INCL_COMMON,
+  locZh: MCE_LOC_ZH,
   catZh: MCE_CAT_ZH,
+  // R15 渲染优化：页签 DOM 缓存命中统计（关于页「自检」展示，便于诊断卡顿）
+  perf: { cacheHit: 0, cacheMiss: 0, lastBuildMs: 0 },
   // i18n 基础（P5 生态层引用）：t 原文直通，reason 把用户可见的错误码汉化
   i18n: {
     enabled: false,
@@ -88,6 +134,7 @@ window.mbCE_cot = {
   var uiFontKey = CID + "_ui_font"; // 字号设置（R7）
   var uiPosKey = CID + "_ui_pos"; // 面板位置记忆（R9）
   var uiWidthKey = CID + "_ui_width"; // 面板宽度偏好（R11）
+  var uiFabKey = CID + "_ui_fab"; // 悬浮球位置记忆（R15）
   var FONTS = ["12px", "13px", "14px", "15px", "16px"];
   var fontIdx = 2;
   var WIDTHS = ["300px", "340px", "380px"];
@@ -129,7 +176,7 @@ window.mbCE_cot = {
     if (document.getElementById(cssId)) { return; }
     var css = [
       "#" + rootId + " * { box-sizing: border-box; }",
-      "#" + fabId + " { position: fixed; right: 22px; bottom: 22px; z-index: 2147483001; width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg,#f5d76e,#c9a227); color:#5a4300; font: 700 15px/52px Arial, sans-serif; text-align: center; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.35); user-select: none; }",
+      "#" + fabId + " { position: fixed; right: 22px; bottom: 22px; z-index: 2147483001; width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg,#f5d76e,#c9a227); color:#5a4300; font: 700 15px/52px Arial, sans-serif; text-align: center; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.35); user-select: none; touch-action: none; }",
       "#" + fabId + ":hover { filter: brightness(1.08); }",
       "#" + panelId + " { position: fixed; right: 22px; bottom: 84px; z-index: 2147483000; width: 340px; max-height: 72vh; overflow: hidden; background: #fdfaf1; color: #3a2c10; border: 1px solid #d9c27a; border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.4); font: 14px/1.6 Arial, sans-serif; display: none; flex-direction: column; }",
       "#" + panelId + ".open { display: flex; }",
@@ -175,22 +222,67 @@ window.mbCE_cot = {
     return n;
   }
 
+  // R15 渲染缓存：页签首次构建后把 DOM 子节点留存，切走只做「摘挂」不重建；
+  // 写入/打开面板时置脏，脏页下次进入才重建。这是「切页卡顿」的主修复。
+  var tabCache = {};
+  var tabStale = {};
+  var renderedTab = null;
+
+  function clearBox(box) {
+    if (!box) { return; }
+    if (box.firstChild !== undefined && box.firstChild !== null) {
+      while (box.firstChild) { box.removeChild(box.firstChild); }
+    }
+    if (box.children && typeof box.children.length === "number") { box.children.length = 0; }
+    try { box.innerHTML = ""; } catch (e) {}
+  }
+  function snapshot(tabId) {
+    if (!tabId || !state.content) { return; }
+    tabCache[tabId] = Array.prototype.slice.call(state.content.children || []);
+  }
+  function restoreCache(box, tabId) {
+    var kids = tabCache[tabId];
+    if (!kids || !kids.length) { return false; }
+    clearBox(box);
+    for (var i = 0; i < kids.length; i++) { box.appendChild(kids[i]); }
+    return true;
+  }
+  function invalidate(tabId) {
+    if (tabId) { tabStale[tabId] = true; return; }
+    tabCache = {}; tabStale = {}; renderedTab = null;
+  }
+  // R15：写入成功后只把「非当前页」置脏——当前页 DOM 里就是用户刚改的值，无需重建
+  function invalidateOthers(cur) {
+    for (var k in tabCache) {
+      if (tabCache.hasOwnProperty(k) && k !== cur) { tabStale[k] = true; }
+    }
+  }
+
   function renderContent(tabId) {
     var box = state.content;
     if (!box) { return; }
     var tab = TABS.filter(function (t) { return t.id === tabId; })[0];
-    box.innerHTML = "";
-    if (tab && typeof tab.render === "function") {
-      try {
-        if (tab.render(box)) { return; }
-      } catch (e) {
-        // R14 健壮性：单页渲染异常不应让面板空白
-        box.appendChild(el("p", "mbce-plain", "本页渲染出错：" + ((e && e.message) || "未知")));
-        box.appendChild(el("p", "mbce-plain", "可切换其它页签继续使用；把此信息反馈即可定位。"));
-        return;
-      }
+    // 同页重复渲染：丢弃本页缓存，强制重建
+    if (renderedTab === tabId) { tabCache[tabId] = undefined; }
+    if (!tabStale[tabId] && restoreCache(box, tabId)) {
+      renderedTab = tabId;
+      M.perf.cacheHit = (M.perf.cacheHit || 0) + 1;
+      return;
     }
-    if (tabId === "about") {
+    if (renderedTab && renderedTab !== tabId) { snapshot(renderedTab); }
+    clearBox(box);
+    var t0 = (new Date()).getTime();
+    var outNodes = [];
+    try {
+      if (tab && typeof tab.render === "function") { tab.render(box); }
+      outNodes = Array.prototype.slice.call(box.children || []);
+    } catch (e) {
+      // R14 健壮性：单页渲染异常不应让面板空白
+      box.appendChild(el("p", "mbce-plain", "本页渲染出错：" + ((e && e.message) || "未知")));
+      box.appendChild(el("p", "mbce-plain", "可切换其它页签继续使用；把此信息反馈即可定位。"));
+      outNodes = Array.prototype.slice.call(box.children || []);
+    }
+    if (tabId === "about" && outNodes.length === 0) {
       box.appendChild(el("p", "mbce-plain", "MapleBirch CE · CoT 作弊面板"));
       var fold = el("details", "mbce-fold");
       var sum = el("summary", null, "关于本版本");
@@ -204,10 +296,18 @@ window.mbCE_cot = {
       ].join("\n");
       fold.appendChild(el("p", null, info));
       box.appendChild(fold);
-      return;
+      outNodes = Array.prototype.slice.call(box.children || []);
     }
-    var map = { char: "角色页（P2 数值/角色页实现）", stats: "数值页（P2 实现）", rel: "关系页（P3 实现）", place: "地点页（P4 实现）", scene: "场景页（P4 实现）" };
-    box.appendChild(el("p", "mbce-plain", "「" + TABS.filter(function (t) { return t.id === tabId; })[0].label + "」" + (map[tabId] || "待实现")));
+    if (!outNodes.length && tabId !== "about") {
+      var map = { char: "角色页（P2 数值/角色页实现）", stats: "数值页（P2 实现）", rel: "关系页（P3 实现）", place: "地点页（P4 实现）", scene: "场景页（P4 实现）" };
+      box.appendChild(el("p", "mbce-plain", "「" + (tab ? tab.label : tabId) + "」" + (map[tabId] || "待实现")));
+      outNodes = Array.prototype.slice.call(box.children || []);
+    }
+    tabCache[tabId] = outNodes;
+    tabStale[tabId] = false;
+    renderedTab = tabId;
+    M.perf.cacheMiss = (M.perf.cacheMiss || 0) + 1;
+    M.perf.lastBuildMs = (new Date()).getTime() - t0;
   }
 
   function activateTab(tabId) {
@@ -349,13 +449,82 @@ window.mbCE_cot = {
     if (saved === "on") { toggle(true); }
   }
 
+  // R15 悬浮球可拖动：位置持久化 + 视口内 clamp；拖动阈值 6px 以免与「点按开合」冲突
+  var fabDrag = null;
+  var fabMoved = false;
+  function clampToView(L, T, w, h) {
+    var W = (window.innerWidth || 0), H = (window.innerHeight || 0);
+    var maxL = W ? Math.max(0, W - w) : L;
+    var maxT = H ? Math.max(0, H - h) : T;
+    return { left: Math.min(Math.max(0, L), maxL), top: Math.min(Math.max(0, T), maxT) };
+  }
+  function fabApplyPos(fab, L, T) {
+    var w = fab.offsetWidth || 48, h = fab.offsetHeight || 48;
+    var c = clampToView(L, T, w, h);
+    fab.style.left = c.left + "px";
+    fab.style.top = c.top + "px";
+    fab.style.right = "auto";
+    fab.style.bottom = "auto";
+    return c;
+  }
   function buildFab() {
     if (state.fab) { return; }
     var fab = el("div");
     fab.id = fabId;
     fab.textContent = "CE";
-    fab.title = "MapleBirch CE · CoT v" + M.version + "（点按开合面板）";
-    fab.addEventListener("click", function () { toggle(); });
+    fab.title = "MapleBirch CE · CoT v" + M.version + "（点按开合面板，按住拖动可换位置）";
+    // 位置恢复（R15）：越界则丢弃
+    try {
+      var sp = localStorage.getItem(uiFabKey);
+      if (sp) {
+        var fp = JSON.parse(sp);
+        var L = parseFloat(fp && fp.left), T = parseFloat(fp && fp.top);
+        if (!isNaN(L) && !isNaN(T)) {
+          var ok = (window.innerWidth ? L <= window.innerWidth - 24 : true) &&
+            (window.innerHeight ? T <= window.innerHeight - 24 : true);
+          if (ok) { fab.style.left = L + "px"; fab.style.top = T + "px"; fab.style.right = "auto"; fab.style.bottom = "auto"; }
+          else { try { localStorage.removeItem(uiFabKey); } catch (e1) {} }
+        }
+      }
+    } catch (e) {}
+    function onFabDown(e) {
+      var p = dragPt(e);
+      if (!p || p.clientX === undefined) { return; }
+      var r = (typeof fab.getBoundingClientRect === "function")
+        ? fab.getBoundingClientRect() : { left: 0, top: 0 };
+      fabDrag = { x: p.clientX, y: p.clientY, left: r.left || 0, top: r.top || 0, moved: false };
+      // 注意：这里不能 preventDefault，否则 touch 之后浏览器不再派发 click，点按开合会失效
+    }
+    function onFabMove(e) {
+      if (!fabDrag) { return; }
+      var p = dragPt(e);
+      if (!p || p.clientX === undefined) { return; }
+      var dx = p.clientX - fabDrag.x, dy = p.clientY - fabDrag.y;
+      if (!fabDrag.moved && (Math.abs(dx) + Math.abs(dy) < 6)) { return; }
+      fabDrag.moved = true;
+      fabMoved = true;
+      fabApplyPos(fab, fabDrag.left + dx, fabDrag.top + dy);
+      if (e.cancelable && typeof e.preventDefault === "function") { try { e.preventDefault(); } catch (e1) {} }
+    }
+    function onFabUp() {
+      if (!fabDrag) { return; }
+      var moved = fabDrag.moved;
+      fabDrag = null;
+      if (moved) {
+        try { localStorage.setItem(uiFabKey, JSON.stringify({ left: fab.style.left, top: fab.style.top })); } catch (e) {}
+        if (state.status) { state.status.textContent = "悬浮球位置已保存：" + fab.style.left + ", " + fab.style.top; }
+      }
+    }
+    fab.addEventListener("mousedown", onFabDown);
+    fab.addEventListener("touchstart", onFabDown);
+    fab.addEventListener("click", function () {
+      if (fabMoved) { fabMoved = false; return; }
+      toggle();
+    });
+    document.addEventListener("mousemove", onFabMove);
+    document.addEventListener("mouseup", onFabUp);
+    document.addEventListener("touchmove", onFabMove, { passive: false });
+    document.addEventListener("touchend", onFabUp);
     document.body.appendChild(fab);
     state.fab = fab;
   }
@@ -363,7 +532,12 @@ window.mbCE_cot = {
   function toggle(force) {
     if (!state.panel) { return; }
     var open = force !== undefined ? !!force : !state.panel.classList.contains("open");
-    if (open) { state.panel.classList.add("open"); } else { state.panel.classList.remove("open"); }
+    if (open) {
+      state.panel.classList.add("open");
+      // R15：每次打开面板刷新数据，丢弃所有页签 DOM 缓存（避免显示陈旧值）
+      invalidate();
+      renderContent(state.activeTab || "char");
+    } else { state.panel.classList.remove("open"); }
     try { localStorage.setItem(uiLsKey, open ? "on" : "off"); } catch (e) {}
     updateBadge();
     return open;
@@ -455,6 +629,11 @@ window.mbCE_cot = {
     fontSize: function () { return FONTS[fontIdx]; },
     setWidth: setWidth,
     panelWidth: function () { return WIDTHS[widthIdx]; },
+    invalidate: invalidate,
+    invalidateOthers: invalidateOthers,
+    perf: function () { return M.perf; },
+    content: function () { return state.content; },
+    clampFab: clampToView, // 悬浮球/面板坐标 clamp（单测用）
     statusEl: null,
     tabs: TABS,
   };
@@ -536,6 +715,8 @@ window.mbCE_cot = {
       // R14：留痕上限 200 条，防存档无限膨胀（保留最近记录）
       if (s.mbCE_wrote.length > 200) { s.mbCE_wrote = s.mbCE_wrote.slice(-200); }
     } catch (e) {}
+    // R15：任何写入成功 → 其它页签 DOM 缓存置脏（切过去时重建，当前页保留）
+    try { if (M.shell && typeof M.shell.invalidateOthers === "function") { M.shell.invalidateOthers(M.shell.activeTab && M.shell.activeTab()); } } catch (e3) {}
     return { ok: true, key: path, from: before, to: value };
   }
 
@@ -1064,8 +1245,10 @@ window.mbCE_cot = {
     function inclChips(keys, host, useZh) {
       keys.forEach(function (k) {
         var zh = (M.inclZh && M.inclZh[k]) || "";
-        var c = el("button", "mbce-chip", (useZh && zh) ? zh : k);
-        c.title = (useZh ? k : (zh || k));
+        var label = (useZh === "both") ? (zh ? (zh + "（" + k + "）") : k)
+          : ((useZh && zh) ? zh : k);
+        var c = el("button", "mbce-chip", label);
+        c.title = zh ? (zh + " / " + k) : k;
         c.setAttribute("data-inc", k);
         c.addEventListener("click", function () {
           var arr = readInc();
@@ -1086,13 +1269,24 @@ window.mbCE_cot = {
       });
     }
     pc.appendChild(el("p", "mbce-plain", "常用倾向（中文，点选即时保存）"));
-    inclChips(Object.keys(M.inclZh || {}), commonHost, true);
+    inclChips((M.inclCommon || Object.keys(M.inclZh || {})), commonHost, true);
     pc.appendChild(commonHost);
     var incDet = el("details");
-    incDet.appendChild(el("summary", null, "完整倾向清单（游戏内 " + gameInclKeys().length + " 项，英文键）"));
+    incDet.appendChild(el("summary", null, "完整倾向清单（游戏内 " + gameInclKeys().length + " 项，中文名 + 英文键）"));
     var incDetBody = el("div", "mbce-group");
-    incDetBody.appendChild(el("p", "mbce-plain", "英文键为游戏原始键名（专名不译）；中文释义见游戏「角色倾向 → 完整倾向清单」页。"));
-    inclChips(gameInclKeys(), allHost, false);
+    incDetBody.appendChild(el("p", "mbce-plain", "98 项全部带中文名（CE 自建语义译名，游戏侧无对应中文词条）；括号内为游戏原始键，写入时用键名。"));
+    // R15 懒渲染：98 chip 在首次展开时才构建，避免角色页首次进入即卡顿
+    var builtAll = false;
+    function buildAllChips() {
+      if (builtAll) { return; }
+      builtAll = true;
+      inclChips(gameInclKeys(), allHost, "both");
+      refreshInc();
+    }
+    incDet._mbceBuild = buildAllChips; // 暴露给单测（测试桩 addEventListener 为 no-op）
+    incDet.addEventListener("toggle", function () {
+      if (incDet.open) { buildAllChips(); }
+    });
     incDetBody.appendChild(allHost);
     incDet.appendChild(incDetBody);
     pc.appendChild(incDet);
@@ -1734,16 +1928,23 @@ window.mbCE_cot = {
       ATT_TYPES.forEach(function (kv) {
         g.appendChild(rowEl(kv[1] + "（attitude." + kv[0] + "）", att ? att[kv[0]] : undefined, function (raw) { return writeAttitude(p.name, kv[0], raw); }));
       });
-      // 全字段查看器（R11）：只读 JSON 展示 $people[NPC] 全部键
+      // 全字段查看器（R11）：只读 JSON；R15 懒渲染——展开时才 stringify（人物对象可能很大，是首渲染卡顿主因）
       var full = el("details");
       full.appendChild(el("summary", null, "查看全部字段（只读 JSON）"));
       var fBody = el("div", "mbce-group");
       full.appendChild(fBody);
-      try {
-        fBody.appendChild(el("p", "mbce-plain", JSON.stringify(info, null, 2)));
-      } catch (e) {
-        fBody.appendChild(el("p", "mbce-plain", "（该 NPC 对象含循环引用/函数，无法 JSON 展示）"));
+      var fBuilt = false;
+      function buildFull() {
+        if (fBuilt) { return; }
+        fBuilt = true;
+        try {
+          fBody.appendChild(el("p", "mbce-plain", JSON.stringify(info, null, 2)));
+        } catch (e) {
+          fBody.appendChild(el("p", "mbce-plain", "（该 NPC 对象含循环引用/函数，无法 JSON 展示）"));
+        }
       }
+      full._mbceBuild = buildFull; // 暴露给单测（测试桩的 addEventListener 是 no-op）
+      full.addEventListener("toggle", function () { if (full.open) { buildFull(); } });
       g.appendChild(full);
       box.appendChild(det);
     });
@@ -1799,6 +2000,11 @@ window.mbCE_cot = {
     "SummitMarket", "ThoreauBuilding", "BangCoffee", "BlodgettGym",
     "HousingRoom", "YourDorm", "NutmegSt", "RiverRat",
   ];
+  // R15：地点中文显示名（实测来源 ModI18N database_maps.js 的 name 字段，非猜测）
+  function locLabel(key) {
+    var zh = (M.locZh && M.locZh[key]) || "";
+    return zh ? (zh + "（" + key + "）") : key;
+  }
   // $findr 可编辑字段（玩家 Findr 状态；tags 用 chip 选择器，有效值提示来自
   // setup.Findr.likes_tags 检查的标签集）
   var FIND_FIELDS = [["name", "用户名"], ["liked", "已喜欢（NPC 名）"], ["disliked", "不喜欢（NPC 名）"], ["matched", "已匹配（NPC 名）"]];
@@ -1872,16 +2078,16 @@ window.mbCE_cot = {
     cur.appendChild(el("b", null, "当前地点"));
     var loc = a.readVar("location");
     var prev = a.readVar("previouslocation");
-    cur.appendChild(el("p", "mbce-plain", "$location = " + (loc === undefined ? "（未初始化）" : String(loc))));
-    if (prev !== undefined) { cur.appendChild(el("p", "mbce-plain", "$previouslocation = " + String(prev))); }
+    cur.appendChild(el("p", "mbce-plain", "$location = " + (loc === undefined ? "（未初始化）" : locLabel(String(loc)))));
+    if (prev !== undefined) { cur.appendChild(el("p", "mbce-plain", "$previouslocation = " + locLabel(String(prev)))); }
     box.appendChild(cur);
 
     var jump = el("div", "mbce-group");
     jump.appendChild(el("b", null, "地点跳转（$location = passage 名）"));
-    jump.appendChild(el("p", "mbce-plain", "下列为游戏 passage 专名（不译，游戏内界面按汉化包显示为中文地名）；跳转后请回游戏页刷新场景。"));
+    jump.appendChild(el("p", "mbce-plain", "显示为「中文名（游戏 passage 专名）」；中文名取自汉化包 database_maps 的 name 字段。跳转后请回游戏页刷新场景。"));
     KNOWN_LOCATIONS.forEach(function (name) {
       var row = el("div", "mbce-row");
-      row.appendChild(el("span", "mbce-row-label", name));
+      row.appendChild(el("span", "mbce-row-label", locLabel(name)));
       var btn = el("button", "mbce-btn", "前往");
       btn.addEventListener("click", function () {
         var r = setLocation(name);
@@ -2014,8 +2220,15 @@ window.mbCE_cot = {
       full.appendChild(el("summary", null, "查看全部字段（只读 JSON）"));
       var fBody = el("div", "mbce-group");
       full.appendChild(fBody);
-      try { fBody.appendChild(el("p", "mbce-plain", JSON.stringify(f, null, 2))); }
-      catch (e) { fBody.appendChild(el("p", "mbce-plain", "（对象含循环引用/函数，无法 JSON 展示）")); }
+      var fBuilt = false;
+      function buildFull() {
+        if (fBuilt) { return; }
+        fBuilt = true;
+        try { fBody.appendChild(el("p", "mbce-plain", JSON.stringify(f, null, 2))); }
+        catch (e) { fBody.appendChild(el("p", "mbce-plain", "（对象含循环引用/函数，无法 JSON 展示）")); }
+      }
+      full._mbceBuild = buildFull; // 暴露给单测
+      full.addEventListener("toggle", function () { if (full.open) { buildFull(); } });
       findr.appendChild(full);
     }
     var note = el("p", "mbce-plain", "说明：setup.Findr 为方法容器（username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match），NPC 是否在线上由游戏实时计算，无需也不可直改。");
@@ -2027,6 +2240,7 @@ window.mbCE_cot = {
   M.places = {
     version: M.version,
     knownLocations: KNOWN_LOCATIONS,
+    locLabel: locLabel,
     setLocation: setLocation,
     clearPreencounterTags: clearPreencounterTags,
     parseList: parseList,
@@ -2124,9 +2338,17 @@ window.mbCE_cot = {
       if (chk) { diag.appendChild(el("p", "mbce-plain", "适配器：目录 " + (chk.catalog ? Object.keys(chk.catalog).length : 0) + " 键 · 留痕 $mbCE_wrote=" + (chk.wroteCount !== undefined ? chk.wroteCount : "?") + " 次")); }
     } catch (e) {}
     try {
-      var keys = ["mbCE_cot_ui", "mbCE_cot_ui_tab", "mbCE_cot_ui_font", "mbCE_cot_ui_pos", "mbCE_cot_ui_stats", "mbCE_cot_ui_rel", "mbCE_cot_ui_width"];
-      diag.appendChild(el("p", "mbce-plain", "UI 偏好：" + keys.filter(function (k) { return localStorage.getItem(k) !== null; }).join(" / ") || "（无）"));
+      var keys = ["mbCE_cot_ui", "mbCE_cot_ui_tab", "mbCE_cot_ui_font", "mbCE_cot_ui_pos", "mbCE_cot_ui_stats", "mbCE_cot_ui_rel", "mbCE_cot_ui_width", "mbCE_cot_ui_fab"];
+      diag.appendChild(el("p", "mbce-plain", "UI 偏好：" + (keys.filter(function (k) { return localStorage.getItem(k) !== null; }).join(" / ") || "（无）")));
     } catch (e) {}
+    // R15：渲染缓存统计（切页是否命中缓存 / 上次构建耗时），用于定位卡顿
+    try {
+      var pf = (M.shell && typeof M.shell.perf === "function") ? M.shell.perf() : null;
+      if (pf) {
+        diag.appendChild(el("p", "mbce-plain", "渲染缓存：命中 " + (pf.cacheHit || 0) + " 次 · 重建 " + (pf.cacheMiss || 0) + " 次 · 上次构建 " + (pf.lastBuildMs || 0) + " ms"));
+        diag.appendChild(el("p", "mbce-plain", "页签切换采用 DOM 缓存（切回不重建）；大块内容（98 倾向清单 / NPC 全字段 JSON / Findr 全字段）展开时才生成。"));
+      }
+    } catch (e2) {}
     box.appendChild(diag);
 
     var dep = el("div", "mbce-group");

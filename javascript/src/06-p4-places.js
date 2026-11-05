@@ -26,6 +26,11 @@
     "SummitMarket", "ThoreauBuilding", "BangCoffee", "BlodgettGym",
     "HousingRoom", "YourDorm", "NutmegSt", "RiverRat",
   ];
+  // R15：地点中文显示名（实测来源 ModI18N database_maps.js 的 name 字段，非猜测）
+  function locLabel(key) {
+    var zh = (M.locZh && M.locZh[key]) || "";
+    return zh ? (zh + "（" + key + "）") : key;
+  }
   // $findr 可编辑字段（玩家 Findr 状态；tags 用 chip 选择器，有效值提示来自
   // setup.Findr.likes_tags 检查的标签集）
   var FIND_FIELDS = [["name", "用户名"], ["liked", "已喜欢（NPC 名）"], ["disliked", "不喜欢（NPC 名）"], ["matched", "已匹配（NPC 名）"]];
@@ -99,16 +104,16 @@
     cur.appendChild(el("b", null, "当前地点"));
     var loc = a.readVar("location");
     var prev = a.readVar("previouslocation");
-    cur.appendChild(el("p", "mbce-plain", "$location = " + (loc === undefined ? "（未初始化）" : String(loc))));
-    if (prev !== undefined) { cur.appendChild(el("p", "mbce-plain", "$previouslocation = " + String(prev))); }
+    cur.appendChild(el("p", "mbce-plain", "$location = " + (loc === undefined ? "（未初始化）" : locLabel(String(loc)))));
+    if (prev !== undefined) { cur.appendChild(el("p", "mbce-plain", "$previouslocation = " + locLabel(String(prev)))); }
     box.appendChild(cur);
 
     var jump = el("div", "mbce-group");
     jump.appendChild(el("b", null, "地点跳转（$location = passage 名）"));
-    jump.appendChild(el("p", "mbce-plain", "下列为游戏 passage 专名（不译，游戏内界面按汉化包显示为中文地名）；跳转后请回游戏页刷新场景。"));
+    jump.appendChild(el("p", "mbce-plain", "显示为「中文名（游戏 passage 专名）」；中文名取自汉化包 database_maps 的 name 字段。跳转后请回游戏页刷新场景。"));
     KNOWN_LOCATIONS.forEach(function (name) {
       var row = el("div", "mbce-row");
-      row.appendChild(el("span", "mbce-row-label", name));
+      row.appendChild(el("span", "mbce-row-label", locLabel(name)));
       var btn = el("button", "mbce-btn", "前往");
       btn.addEventListener("click", function () {
         var r = setLocation(name);
@@ -241,8 +246,15 @@
       full.appendChild(el("summary", null, "查看全部字段（只读 JSON）"));
       var fBody = el("div", "mbce-group");
       full.appendChild(fBody);
-      try { fBody.appendChild(el("p", "mbce-plain", JSON.stringify(f, null, 2))); }
-      catch (e) { fBody.appendChild(el("p", "mbce-plain", "（对象含循环引用/函数，无法 JSON 展示）")); }
+      var fBuilt = false;
+      function buildFull() {
+        if (fBuilt) { return; }
+        fBuilt = true;
+        try { fBody.appendChild(el("p", "mbce-plain", JSON.stringify(f, null, 2))); }
+        catch (e) { fBody.appendChild(el("p", "mbce-plain", "（对象含循环引用/函数，无法 JSON 展示）")); }
+      }
+      full._mbceBuild = buildFull; // 暴露给单测
+      full.addEventListener("toggle", function () { if (full.open) { buildFull(); } });
       findr.appendChild(full);
     }
     var note = el("p", "mbce-plain", "说明：setup.Findr 为方法容器（username/uses/on_now/people_on/likes_tags/npc_tags/get_new_match），NPC 是否在线上由游戏实时计算，无需也不可直改。");
@@ -254,6 +266,7 @@
   M.places = {
     version: M.version,
     knownLocations: KNOWN_LOCATIONS,
+    locLabel: locLabel,
     setLocation: setLocation,
     clearPreencounterTags: clearPreencounterTags,
     parseList: parseList,

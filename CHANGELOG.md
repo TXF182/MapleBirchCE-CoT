@@ -1,5 +1,48 @@
 # CHANGELOG
 
+## [0.7.2] - 2026-11-05
+
+R15 用户反馈四条（切页卡顿 / 地点未翻译 / 倾向不全 / 悬浮球不可拖）逐条整改：
+
+### ① 切页卡顿与渲染慢（对标 DoL 版的分级导航思路）
+
+- **页签 DOM 缓存**：每页首次构建后保留子节点，切走只做「摘挂」，切回直接复挂，不再 `innerHTML=""` 全量重建。命中/重建次数与上次构建耗时记入 `M.perf`，关于页「自检详情」可查（定位后续卡顿有据可依）。
+- **写入后精确置脏**：写入成功只把「非当前页」标脏（`invalidateOthers`），连续改值不会反复清缓存；**重新打开面板时全量失效**，保证数据新鲜。
+- **懒渲染大块**：98 项倾向清单、NPC 全字段 JSON、Findr 全字段 JSON 改为 `details` 首次展开时才构建（此前每个 NPC 卡都即时 `JSON.stringify` 整个对象，是关系页首渲染卡顿主因）。
+- 常用倾向恢复为 20 项 chip（此前把 20 项表扩到 98 后会一次铺 98 个 chip）。
+
+### ② 地点跳转列表翻译
+
+取证：直接对 i18n 的 `typeB.TypeBOutputText` 逐条匹配 `"<passage 键>": {name: "…"`，命中 12/13（来源文件 `database_maps.js`）：
+
+| passage | 中文名 | passage | 中文名 |
+|---|---|---|---|
+| Campus | 校园 | SummitMarket | 顶峰市场 |
+| ChamberlainHall | 钱伯兰大厅 | ThoreauBuilding | 梭罗大楼 |
+| EmersonBuilding | 埃默森大楼 | BangCoffee | 邦咖啡 |
+| HallowellBuilding | 哈洛韦尔大楼 | BlodgettGym | 布洛杰特体育馆 |
+| SmithLibrary | 史密斯图书馆 | YourDorm | 你的宿舍 |
+| NutmegSt | 豆蔻街 | RiverRat | 河鼠 |
+| HousingRoom | （汉化包无对应 name，保留专名） | | |
+
+- 展示形态为 **「中文名（passage 专名）」**——既满足中文可读，又保留写入时需要的原始键；当前地点/上一地点也按此显示。
+- 上一版 R13b 那句「passage 专名不译」已替换为实测依据说明。
+
+### ③ 倾向/特质不全（98 键补全）
+
+- 取证结论：ModI18N 词表里**不存在** `Open Relationships` / `Insecure` / `Polyamorous` 等倾向键（原始 JSON 全量搜索 0 命中），说明游戏侧倾向名从未汉化，用户看到的英文键不是我们的映射缺失。
+- 因此 `MCE_INCL_ZH` 由 20 项扩为 **98 项全量语义译名**（与 `setup.inclinations` 的 98 键逐一对齐，单测断言 98/98 且每项含中文）。
+- 完整清单 chip 显示 **「中文（英文键）」**，写入仍用英文键；「常用 20 项」单独作为快选区，保持面板不臃肿。
+- 直输中文反查（`normIncl`）因词表补全，98 键中文均可反查。
+
+### ④ 悬浮球可拖动换位
+
+- FAB 补 `mousedown` / `touchstart` / `touchmove({passive:false})` / `touchend`，拖动阈值 6px 与「点按开合」区分（`fabMoved` 抑制 click）。
+- 位置持久化 `mbCE_cot_ui_fab`，坐标按视口 `clamp`（`clampToView`），换屏/旋屏后越界则丢弃回默认位；`touch-action:none` 防止浏览器接管手势。
+- 注意：`touchstart` **不** `preventDefault`（否则触摸后浏览器不再派发 click，点按开合会失效）。
+
+单测 71 → **76 项**；产物 SHA256 `D2B5605C870D4DE2B9DBD3C8D2DC4DA8E07375EABC0DBA6DAEACCBB858FF72D7`。
+
 ## [0.7.1] - 2026-11-05
 
 R14 自我扫描整改（无审批连续自查，按「直到自己找不出问题」执行）：

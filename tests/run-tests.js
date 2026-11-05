@@ -76,7 +76,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.7.1");
+  assert.strictEqual(M.version, "0.7.2");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -140,7 +140,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.7.1");
+  assert.strictEqual(c.version, "0.7.2");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -153,7 +153,7 @@ test("自检键: setup.mbStageCE 就位（版本一致 + 就绪标记）", () =>
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "ready", "自检键标记当前就绪状态（不再写死 P1）");
   assert.strictEqual(st.version, env.sandbox.mbCE_cot.version, "自检键版本与运行时一致");
-  assert.strictEqual(st.version, "0.7.1");
+  assert.strictEqual(st.version, "0.7.2");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -831,6 +831,8 @@ test("R11: 关系页全字段查看器", () => {
     n.children.forEach(c => {
       if (c.children && c.children.length > 0 && c.children[0].textContent === "查看全部字段（只读 JSON）") {
         hasFull = true;
+        // R15 懒渲染：展开时才 stringify，测试直接调用构建钩子
+        if (typeof c._mbceBuild === "function") { c._mbceBuild(); }
         if (c.children[1] && c.children[1].children && c.children[1].children[0] && c.children[1].children[0].textContent.indexOf('"nickname"') >= 0) { hasJson = true; }
       }
       walk(c);
@@ -1036,6 +1038,87 @@ test("R14: 关系页分类 chip 带人数 + 空结果提示元素", () => {
   assert.ok(txt.indexOf("无匹配人物") >= 0, "存在空结果提示文案元素");
 });
 
+test("R15: 倾向 98 键全量中文 + 常用 20 项", () => {
+  const env = makeEnv(); loadAll(env);
+  const M = env.sandbox.mbCE_cot;
+  const keys = Object.keys(M.inclZh);
+  assert.strictEqual(keys.length, 98, "98 键全在表内");
+  const missing = keys.filter(k => !/[\u4e00-\u9fff]/.test(M.inclZh[k]));
+  assert.deepStrictEqual(missing, [], "每键都有中文名");
+  assert.strictEqual(M.inclCommon.length, 20, "常用默认 20 项");
+  assert.ok(M.inclCommon.every(k => M.inclZh[k]), "常用项都能查到中文");
+});
+
+test("R15: 地点中文名映射（12 项 + 未知键兜底）", () => {
+  const env = makeEnv(); loadAll(env);
+  const P = env.sandbox.mbCE_cot.places;
+  assert.strictEqual(P.locLabel("Campus"), "校园（Campus）");
+  assert.strictEqual(P.locLabel("BlodgettGym"), "布洛杰特体育馆（BlodgettGym）");
+  assert.strictEqual(P.locLabel("SmithLibrary"), "史密斯图书馆（SmithLibrary）");
+  assert.strictEqual(P.locLabel("HousingRoom"), "HousingRoom", "无中文名保留专名");
+  assert.strictEqual(P.locLabel("NotAKey"), "NotAKey", "未知键不报错");
+  const zhCount = Object.keys(env.sandbox.mbCE_cot.locZh).filter(k => env.sandbox.mbCE_cot.locZh[k]).length;
+  assert.strictEqual(zhCount, 12, "12 个地点有中文名");
+});
+
+test("R15: 角色页完整倾向清单懒构建 98 chip（中文+英文键）", () => {
+  const env = makeEnv(); loadAll(env);
+  env.variables.pcinclinations = ["Shy"];
+  const box = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("char", box);
+  let det = null;
+  (function walk(n) {
+    n.children.forEach(c => {
+      if (c.children && c.children[0] && String(c.children[0].textContent || "").indexOf("完整倾向清单") >= 0) { det = c; }
+      walk(c);
+    });
+  })(box);
+  assert.ok(det, "存在完整倾向清单折叠");
+  assert.strictEqual(typeof det._mbceBuild, "function", "懒构建钩子存在");
+  det._mbceBuild();
+  let chips = null;
+  (function walk2(n) {
+    n.children.forEach(c => {
+      if (c.className && c.className.indexOf("mbce-chips") >= 0 && c.children.length === 98) { chips = c; }
+      walk2(c);
+    });
+  })(det);
+  assert.ok(chips, "展开后生成 98 个 chip");
+  assert.ok(chips.children.every(c => c.textContent.indexOf("（") >= 0), "每个 chip 含中文（英文键）");
+  assert.ok(chips.children.some(c => c.textContent.indexOf("害羞") >= 0), "含 Shy 的中文名");
+});
+
+test("R15: 页签 DOM 缓存（切回不重建）+ 写入后其它页置脏", () => {
+  const env = makeEnv(); loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  S.init();
+  S.activateTab("stats");
+  S.activateTab("char");
+  const before = S.perf().cacheHit;
+  S.activateTab("stats");
+  assert.ok(S.perf().cacheHit > before, "切回数值页命中缓存而非重建");
+  const txt = walkText(S.content(), []).join("|");
+  assert.ok(txt.length > 10, "缓存页内容非空");
+  // 写入后其它页置脏：切回角色页应重建（cacheMiss 增加）
+  const miss = S.perf().cacheMiss;
+  env.sandbox.mbCE_cot.adapter.writeVar("pcmoney", 500);
+  S.activateTab("char");
+  assert.ok(S.perf().cacheMiss > miss, "写入后其它页被置脏并重建");
+});
+
+test("R15: 悬浮球坐标 clamp（越界回收到视口内）", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.innerWidth = 400; env.sandbox.innerHeight = 800;
+  const S = env.sandbox.mbCE_cot.shell;
+  const c1 = S.clampFab(9999, 9999, 48, 48);
+  assert.strictEqual(c1.left, 352, "右侧越界收到 400-48");
+  assert.strictEqual(c1.top, 752, "底部越界收到 800-48");
+  const c2 = S.clampFab(-50, -30, 48, 48);
+  assert.strictEqual(c2.left, 0, "左越界归 0");
+  assert.strictEqual(c2.top, 0, "上越界归 0");
+  const c3 = S.clampFab(100, 200, 48, 48);
+  assert.strictEqual(c3.left, 100, "视口内保持原值");
+});
 let failed = 0;
 for (const [name, fn] of tests) {
   try { fn(); console.log("  PASS " + name); }
@@ -1043,3 +1126,4 @@ for (const [name, fn] of tests) {
 }
 console.log(failed === 0 ? "ALL GREEN (" + tests.length + " tests)" : failed + " FAILED of " + tests.length);
 process.exit(failed === 0 ? 0 : 1);
+
