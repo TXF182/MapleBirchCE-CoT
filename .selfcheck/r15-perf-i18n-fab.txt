@@ -83,3 +83,15 @@ Microsoft.PowerShell.Commands.Internal.Format.FormatEntryData
 Microsoft.PowerShell.Commands.Internal.Format.FormatEntryData
 Microsoft.PowerShell.Commands.Internal.Format.GroupEndData
 Microsoft.PowerShell.Commands.Internal.Format.FormatEndData
+
+== 0.7.2 最终安装包 ==
+文件: MapleBirchCE-CoT-0.7.2.mod.zip
+大小: 34926 B
+SHA256: 07E71D0C0A7C44A9A064CAE90AA30A3FAFC24EA6F4CA6B1FC46EFEB577FBF16A
+
+
+== 最终包（含 02-shell 微优化后） ==
+大小: 35054 B
+SHA256: 92F46584D340E331CE76D3CBD7EEBCB02EE800140D73661EE0F1CC52E49062F3
+产物 SHA256: 733331533D55BE5B27673E0C2714964F05ABB32AABDB107EC318A9F3B68F43EE
+

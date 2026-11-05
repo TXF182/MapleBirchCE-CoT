@@ -112,6 +112,7 @@
   var tabCache = {};
   var tabStale = {};
   var renderedTab = null;
+  var lastSavedTab = null;
 
   function clearBox(box) {
     if (!box) { return; }
@@ -201,13 +202,18 @@
     state.activeTab = tabId;
     var tabsEl = state.tabsEl;
     if (tabsEl) {
-      Array.prototype.forEach.call(tabsEl.children, function (c) { c.className = "mbce-tab"; });
+      // R15：只在页签变化时改 className，避免每次点击都全表遍历写样式
       Array.prototype.forEach.call(tabsEl.children, function (c) {
-        if (c.textContent === tab.label) { c.className = "mbce-tab on"; }
+        var want = (c.textContent === tab.label) ? "mbce-tab on" : "mbce-tab";
+        if (c.className !== want) { c.className = want; }
       });
     }
     renderContent(tabId);
-    try { localStorage.setItem(uiTabKey, tabId); } catch (e) {}
+    // R15：同一页签不重复写 localStorage（同步 IO 在手机上会拖慢连点）
+    if (lastSavedTab !== tabId) {
+      lastSavedTab = tabId;
+      try { localStorage.setItem(uiTabKey, tabId); } catch (e) {}
+    }
   }
 
   function updateBadge() {

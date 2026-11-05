@@ -59,6 +59,6 @@
 
 ## 0.7.2 本地安装包
 
-- `MapleBirchCE-CoT-0.7.2.mod.zip`（34787 B，SHA256 `1C5B8D026C447AC93FE7257228700C4FEE88891A5F2604DEADA6EDCE4E859334`）
+- `MapleBirchCE-CoT-0.7.2.mod.zip`（SHA256 见 GitHub Release 资产 digest 或 `.selfcheck/r15-perf-i18n-fab.txt`；zip 内含 README，故不在 README 里自引用自身哈希）
 - 0.7.1：`MapleBirchCE-CoT-0.7.1.mod.zip`（SHA256 `C9AF5FBC`…）
 - 0.7.0：`MapleBirchCE-CoT-0.7.0.mod.zip`（SHA256 `D2542F3A88455899668106E7C670B2D7B756ADBA02B6C1E00093877E64917543`）

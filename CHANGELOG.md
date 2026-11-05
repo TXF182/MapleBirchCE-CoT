@@ -41,7 +41,7 @@ R15 用户反馈四条（切页卡顿 / 地点未翻译 / 倾向不全 / 悬浮�
 - 位置持久化 `mbCE_cot_ui_fab`，坐标按视口 `clamp`（`clampToView`），换屏/旋屏后越界则丢弃回默认位；`touch-action:none` 防止浏览器接管手势。
 - 注意：`touchstart` **不** `preventDefault`（否则触摸后浏览器不再派发 click，点按开合会失效）。
 
-单测 71 → **76 项**；产物 SHA256 `D2B5605C870D4DE2B9DBD3C8D2DC4DA8E07375EABC0DBA6DAEACCBB858FF72D7`。
+单测 71 → **76 项**；产物 SHA256 `733331533D55BE5B27673E0C2714964F05ABB32AABDB107EC318A9F3B68F43EE`（安装包见 `.selfcheck/r15-perf-i18n-fab.txt`）。
 
 ## [0.7.1] - 2026-11-05
 
