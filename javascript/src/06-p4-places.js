@@ -105,6 +105,7 @@
 
     var jump = el("div", "mbce-group");
     jump.appendChild(el("b", null, "地点跳转（$location = passage 名）"));
+    jump.appendChild(el("p", "mbce-plain", "下列为游戏 passage 专名（不译，游戏内界面按汉化包显示为中文地名）；跳转后请回游戏页刷新场景。"));
     KNOWN_LOCATIONS.forEach(function (name) {
       var row = el("div", "mbce-row");
       row.appendChild(el("span", "mbce-row-label", name));

@@ -917,6 +917,7 @@ test("R13: 技能阶段显示（等级 = floor(值/100)，进度 = 值%100）", 
   assert.ok(hit >= 0, "阶段行存在 :: " + txt.slice(0, 200));
   assert.ok(txt.indexOf("（进度 21%）") >= 0, "121 -> Lv1/21% :: " + txt.slice(Math.max(0, txt.indexOf("手技"))));
   assert.ok(txt.indexOf("等级 −") >= 0 && txt.indexOf("等级 +") >= 0, "存在等级加减按钮");
+  assert.ok(txt.indexOf("设等级") >= 0, "存在等级直接输入按钮");
 });
 
 test("R13: 声誉写入（$reputation.类型.群体）+ 范围校验", () => {

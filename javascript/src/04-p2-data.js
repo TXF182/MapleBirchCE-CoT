@@ -269,7 +269,30 @@
         dn.addEventListener("click", function () { go(-1); });
         var up = el("button", "mbce-btn", "等级 +");
         up.addEventListener("click", function () { go(1); });
-        r.appendChild(dn); r.appendChild(up);
+        // R13 直接输入等级（写 Lv*100，精确停在阶段起点）
+        var lvInp = el("input", "mbce-in");
+        lvInp.type = "number";
+        lvInp.value = String(Math.floor(n0 / 100));
+        lvInp.setAttribute("data-lv", key);
+        var setBtn = el("button", "mbce-btn", "设等级");
+        setBtn.addEventListener("click", function () {
+          var lv = Number(lvInp.value);
+          if (!isFinite(lv) || lv < 0) {
+            var stE = M.shell && M.shell.statusEl;
+            if (stE) { stE.textContent = "等级需为 ≥0 的数字"; }
+            return;
+          }
+          var rr2 = applyEdit("skills", key, Math.floor(lv) * 100);
+          if (rr2 && rr2.ok) {
+            lbl.textContent = "阶段 Lv " + Math.floor(lv) + "（进度 0%）";
+            var st3 = M.shell && M.shell.statusEl;
+            if (st3) { st3.textContent = "技能 " + key + " 已设 Lv " + Math.floor(lv) + "（值 " + (Math.floor(lv) * 100) + "，$mbCE_wrote 可查）"; }
+          } else {
+            var st4 = M.shell && M.shell.statusEl;
+            if (st4) { st4.textContent = "阶段写入失败：" + ((rr2 && rr2.reason) || "未知"); }
+          }
+        });
+        r.appendChild(dn); r.appendChild(up); r.appendChild(lvInp); r.appendChild(setBtn);
         return r;
       }
       g.keys.forEach(function (kv) {
