@@ -76,7 +76,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.6.10");
+  assert.strictEqual(M.version, "0.7.0");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -140,7 +140,7 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.6.10");
+  assert.strictEqual(c.version, "0.7.0");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
@@ -152,7 +152,7 @@ test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
   assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.6.10");
+  assert.strictEqual(st.version, "0.7.0");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -763,7 +763,7 @@ test("R10: 角色页可编辑行 + 关系页 NPC 搜索框", () => {
   let pcRows = 0;
   (function walk(n) {
     n.children.forEach(c => {
-      if (c.className === "mbce-row" && c.children.length === 3 && c.children[2].textContent === "保存") { pcRows++; }
+      if (c.className === "mbce-row" && c.children.length === 3 && c.children[2].textContent === "保存" && String(c.children[0].textContent || "").indexOf("（$pc") >= 0) { pcRows++; }
       walk(c);
     });
   })(box);
@@ -898,6 +898,87 @@ test("R12: Findr 全字段查看器渲染", () => {
     });
   })(box);
   assert.strictEqual(hasFull, true, "存在 Findr 全字段查看折叠");
+});
+
+// R13：技能阶段（等级 = floor(值/100)）+ 声誉 + 关注切换 + 中文预设 + 分类筛选
+function walkText(n, out) {
+  out.push(n.textContent === undefined || n.textContent === null ? "" : String(n.textContent));
+  (n.children || []).forEach(c => walkText(c, out));
+  return out;
+}
+
+test("R13: 技能阶段显示（等级 = floor(值/100)，进度 = 值%100）", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.pcskills = { Charisma: 100, Hand: 121 };
+  const box = env.sandbox.document.createElement("div");
+  assert.strictEqual(env.sandbox.mbCE_cot.data.render("stats", box), true);
+  const txt = walkText(box, []).join("|");
+  const hit = txt.indexOf("阶段 Lv");
+  assert.ok(hit >= 0, "阶段行存在 :: " + txt.slice(0, 200));
+  assert.ok(txt.indexOf("（进度 21%）") >= 0, "121 -> Lv1/21% :: " + txt.slice(Math.max(0, txt.indexOf("手技"))));
+  assert.ok(txt.indexOf("等级 −") >= 0 && txt.indexOf("等级 +") >= 0, "存在等级加减按钮");
+});
+
+test("R13: 声誉写入（$reputation.类型.群体）+ 范围校验", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  env.sandbox.State.variables.reputation = { popularity: { student: 5 } };
+  let r = D.writeReputation("popularity", "student", "42");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(env.variables.reputation.popularity.student, 42, "双层键写入");
+  r = D.writeReputation("popularity", "student", "abc");
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.reason, "nan");
+  r = D.writeReputation("popularity", "student", "100000");
+  assert.strictEqual(r.reason, "range:-1000-1000");
+});
+
+test("R13: 关注切换（$favoritepeople push/splice）", () => {
+  const env = makeEnv(); loadAll(env);
+  const R = env.sandbox.mbCE_cot.rel;
+  env.sandbox.State.variables.favoritepeople = ["甲"];
+  let r = R.toggleFavorite("乙");
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.fav, true);
+  assert.deepStrictEqual([...env.variables.favoritepeople], ["甲", "乙"], "加入关注");
+  r = R.toggleFavorite("甲");
+  assert.strictEqual(r.fav, false);
+  assert.deepStrictEqual([...env.variables.favoritepeople], ["乙"], "取消关注");
+});
+
+test("R13: 角色页中文倾向预设 + 声誉块 + special 汉化", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.pcinclinations = ["Open Relationships"];
+  env.sandbox.State.variables.people = { "Clifford Rentfrow": { special: true, relationship: "schoolmate" } };
+  const box = env.sandbox.document.createElement("div");
+  assert.strictEqual(env.sandbox.mbCE_cot.data.render("char", box), true);
+  const txt = walkText(box, []).join("|");
+  assert.ok(txt.indexOf("开放关系") >= 0, "中文倾向 chip");
+  assert.ok(txt.indexOf("角色声誉") >= 0, "声誉块存在");
+  assert.ok(txt.indexOf("社交媒体 / 职业") >= 0, "社媒/职业块存在");
+  assert.ok(txt.indexOf("· special") < 0, "special 已汉化");
+  assert.ok(txt.indexOf("· 特殊") >= 0, "显示 特殊");
+});
+
+test("R13: 关系页分类筛选 chip + 状态栏无 P1 文案", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.people = { "甲": {}, "乙": {} };
+  env.sandbox.MB_pe = null;
+  const box = env.sandbox.document.createElement("div");
+  assert.strictEqual(env.sandbox.mbCE_cot.rel.render(box), true);
+  const txt = walkText(box, []).join("|");
+  assert.ok(txt.indexOf("全部（2）") >= 0, "全部计数 chip");
+  assert.ok(txt.indexOf("⭐ 关注的人") >= 0 && txt.indexOf("🎓 教职工") >= 0, "分类中文 chip");
+  const UI = env.sandbox.mbCE_cot.shell;
+  assert.ok(String(UI.statusText ? UI.statusText() : "就绪").indexOf("P1") < 0, "状态栏无 P1 文案");
+});
+
+test("R13: 倾向可直输中文（中文名反查英文键）", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  const r = D.writePcInclinations("开放关系，害羞, Insecure");
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual([...env.variables.pcinclinations], ["Open Relationships", "Shy", "Insecure"], "中文→英文键 + 原键保留");
 });
 
 let failed = 0;

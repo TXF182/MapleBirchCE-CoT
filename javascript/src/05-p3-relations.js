@@ -70,6 +70,21 @@
     return a.writeVar("crush", v);
   }
 
+  // R13 关注切换：$favoritepeople 是数组（游戏内 push/splice 维护）
+  function toggleFavorite(name) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    if (!name) { return { ok: false, reason: "empty" }; }
+    var cur = a.readVar("favoritepeople");
+    var arr = Array.isArray(cur) ? cur.slice(0) : [];
+    var i = arr.indexOf(String(name));
+    var fav = true;
+    if (i >= 0) { arr.splice(i, 1); fav = false; } else { arr.push(String(name)); }
+    var r = a.writeVar("favoritepeople", arr);
+    if (r.ok) { r.fav = fav; r.to = arr; }
+    return r;
+  }
+
   function writeRelationship(person, raw) {
     var a = adapter();
     if (!a) { return { ok: false, reason: "no-adapter" }; }
@@ -218,14 +233,85 @@
     var nInp = el("input", "mbce-in");
     nInp.type = "text";
     nInp.addEventListener("input", function () {
-      var q = nInp.value.trim().toLowerCase();
-      dets.forEach(function (d) {
-        var nm = (d.getAttribute("data-name") || "").toLowerCase();
-        d.style.display = (!q || nm.indexOf(q) >= 0) ? "" : "none";
-      });
+      applyPersonFilter();
     });
     nRow.appendChild(nInp);
     box.appendChild(nRow);
+    // R13 人物分类筛选：优先调用游戏原生分类函数（all_romantic_partners/all_friends/...）
+    function gamePeopleApi() {
+      try {
+        var S = (typeof Setup !== "undefined" && Setup) || (typeof setup !== "undefined" && setup) || null;
+        if (S && S.people && typeof S.people === "object") { return S.people; }
+      } catch (e) {}
+      return null;
+    }
+    function callNameList(fname, args) {
+      var P = gamePeopleApi();
+      if (!P || typeof P[fname] !== "function") { return []; }
+      try { var r = P[fname].apply(P, args || []); return Array.isArray(r) ? r : []; } catch (e) { return []; }
+    }
+    var catMap = {};
+    function markCat(names, id) {
+      (names || []).forEach(function (n) {
+        if (!n) { return; }
+        (catMap[String(n)] = catMap[String(n)] || {})[id] = true;
+      });
+    }
+    var favs = a.readVar("favoritepeople");
+    markCat(Array.isArray(favs) ? favs : [], "fav");
+    markCat(callNameList("all_romantic_partners", []), "rom");
+    var crushV = a.readVar("crush");
+    if (crushV) { markCat([String(crushV)], "crush"); }
+    markCat(callNameList("all_friends", []), "friend");
+    markCat(callNameList("all_acquaintances", [true]), "acq");
+    markCat(callNameList("all_admirers", []), "admire");
+    markCat(callNameList("all_special", []), "special");
+    markCat(callNameList("all_faculty", []), "faculty");
+    markCat(callNameList("all_coworkers", []), "cowork");
+    markCat(callNameList("all_exes", []), "ex");
+    var PA = gamePeopleApi();
+    if (PA && typeof PA.is_rival === "function") {
+      list.forEach(function (pp) {
+        try { if (PA.is_rival(pp.name)) { markCat([pp.name], "rival"); } } catch (e) {}
+      });
+    }
+    var CAT_IDS = ["fav", "rom", "crush", "friend", "acq", "admire", "special", "faculty", "cowork", "ex", "rival"];
+    var CAT_ICON = { fav: "⭐", rom: "♥", crush: "💗", friend: "😊", acq: "👋", admire: "💗", special: "🤝", faculty: "🎓", cowork: "💼", ex: "💔", rival: "👿" };
+    var catRow = el("div", "mbce-cats");
+    var curCat = "";
+    function applyPersonFilter() {
+      var q = nInp.value.trim().toLowerCase();
+      dets.forEach(function (d) {
+        var nm = (d.getAttribute("data-name") || "").toLowerCase();
+        var cats = (d.getAttribute("data-cats") || "");
+        var okQ = !q || nm.indexOf(q) >= 0;
+        var okC = !curCat || (" " + cats + " ").indexOf(" " + curCat + " ") >= 0;
+        d.style.display = (okQ && okC) ? "" : "none";
+      });
+    }
+    var allChip = el("button", "mbce-cat on", "全部（" + list.length + "）");
+    allChip.addEventListener("click", function () { curCat = ""; refreshCatChips(); applyPersonFilter(); });
+    catRow.appendChild(allChip);
+    var catChips = [allChip];
+    CAT_IDS.forEach(function (id) {
+      var c = el("button", "mbce-cat", (M.catZh && M.catZh[id]) || id);
+      c.setAttribute("data-cat", id);
+      c.addEventListener("click", function () {
+        curCat = (curCat === id) ? "" : id;
+        refreshCatChips();
+        applyPersonFilter();
+      });
+      catChips.push(c);
+      catRow.appendChild(c);
+    });
+    function refreshCatChips() {
+      catChips.forEach(function (c) {
+        var id = c.getAttribute("data-cat") || "";
+        c.className = "mbce-cat" + ((id === "" && curCat === "") || id === curCat ? " on" : "");
+      });
+    }
+    box.appendChild(catRow);
+    box.appendChild(el("p", "mbce-plain", "分类来自游戏原生判定（关注/浪漫/朋友/认识/仰慕/特殊/教职工/同事/前任/对手）；无判定的显示在「全部」。"));
     // 每 NPC 折叠状态记忆（R9）：mbCE_cot_ui_rel 存收起 NPC 名
     var relLsKey = "mbCE_cot_ui_rel";
     function readClosedRel() {
@@ -250,6 +336,10 @@
       var head = p.name;
       if (p.relationship !== undefined) { head += " · " + relLabel(p.relationship); }
       if (p.special) { head += " · 特殊"; }
+      var pCats = catMap[p.name] || {};
+      var icons = CAT_IDS.filter(function (id) { return pCats[id]; }).map(function (id) { return CAT_ICON[id]; }).join("");
+      if (icons) { head += "  " + icons; }
+      det.setAttribute("data-cats", CAT_IDS.filter(function (id) { return pCats[id]; }).join(" "));
       det.appendChild(el("summary", null, head));
       var g = el("div", "mbce-group");
       det.appendChild(g);
@@ -260,6 +350,20 @@
         if (info.partner !== undefined) { pts.push("partner=" + info.partner); }
         if (pts.length) { g.appendChild(el("p", "mbce-plain", pts.join(" · "))); }
       }
+      // R13 关注切换（$favoritepeople 为数组，游戏内用 push/splice 维护）
+      var favBox = el("div", "mbce-row");
+      var favCur = a.readVar("favoritepeople");
+      var isFav = Array.isArray(favCur) && favCur.indexOf(p.name) >= 0;
+      var favBtn = el("button", "mbce-btn", isFav ? "取消关注 ⭐" : "关注 ⭐");
+      favBtn.addEventListener("click", function () {
+        var r = toggleFavorite(p.name);
+        if (r && r.ok) {
+          favBtn.textContent = r.fav ? "取消关注 ⭐" : "关注 ⭐";
+          statusMsg(r.fav ? "已加入关注（$favoritepeople）" : "已取消关注（$favoritepeople）");
+        } else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+      });
+      favBox.appendChild(favBtn);
+      g.appendChild(favBox);
       var relRow = el("div", "mbce-row");
       relRow.appendChild(el("span", "mbce-row-label", "关系标签（relationship）"));
       var relInp = el("input", "mbce-in");
@@ -433,6 +537,7 @@
     version: M.version,
     writeAttitude: writeAttitude,
     setCrush: setCrush,
+    toggleFavorite: toggleFavorite,
     writeRelationship: writeRelationship,
     writePersonField: writePersonField,
     markKnown: markKnown,

@@ -6,7 +6,27 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.6.10"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.7.0"; // 双源：boot.json version 必须一致
+
+// R13 中文词表（来源：游戏 setup.* 键 + ModI18N 中文对照；专名保留英文键作 tooltip）
+const MCE_SKILL_ZH = {
+  "Charisma": "魅力", "Willpower": "意志力", "Exhibitionism": "暴露癖", "Voyeurism": "窥淫癖",
+  "Sexual Knowledge": "性知识", "Disinhibition": "放纵", "Dominance": "支配", "Submission": "顺从",
+  "Hand": "手技", "Oral": "口技", "Vaginal": "阴道", "Anal": "肛", "Physical": "体能",
+  "Intellectual": "智力", "Artistic": "艺术", "Photography": "摄影", "Masturbation": "自慰",
+};
+const MCE_INCL_ZH = { // 常用倾向中文（其余 98 键为游戏专名，保留英文 + 完整清单见游戏「角色倾向」页）
+  "Open Relationships": "开放关系", "Polyamorous": "多元恋", "Demisexual": "半性恋",
+  "Asexual": "无性恋", "Aromantic": "无浪漫", "Insecure": "不自信", "Shy": "害羞",
+  "Confident": "自信", "Kind": "善良", "Loyal": "忠诚", "Gregarious": "合群", "Loner": "独行",
+  "Vegetarian": "素食", "Vegan": "纯素", "Pescetarian": "鱼素", "Cheater": "不忠",
+  "Particular": "挑剔", "Pleaser": "讨好型", "Careful": "谨慎", "Eager": "热切",
+};
+const MCE_CAT_ZH = { // 人物分类（对应游戏「人物」面板原版 tab）
+  "fav": "⭐ 关注的人", "rom": "♥ 浪漫伴侣", "crush": "💗 暗恋", "friend": "😊 朋友",
+  "acq": "👋 认识的人", "admire": "💗 仰慕者", "special": "🤝 特殊人物",
+  "faculty": "🎓 教职工", "cowork": "💼 同事", "ex": "💔 前任", "rival": "👿 对手",
+};
 
 window.mbCE_cot = {
   version: MCE_VERSION,
@@ -17,6 +37,10 @@ window.mbCE_cot = {
   stage: { core: "ok", adapter: "pending", shell: "pending", keys: "pending" },
   adapter: null, // 03-cot-adapter.js 注入
   shell: null,   // 02-shell.js 注入
+  // R13 中文词表（供各页渲染用）
+  skillZh: MCE_SKILL_ZH,
+  inclZh: MCE_INCL_ZH,
+  catZh: MCE_CAT_ZH,
   // i18n 基础（P5 生态层引用）：t 原文直通，reason 把用户可见的错误码汉化
   i18n: {
     enabled: false,
@@ -129,6 +153,11 @@ window.mbCE_cot = {
       "#" + panelId + " .mbce-btn { padding: 2px 10px; border: 1px solid #c9a227; background: #f5d76e; color: #5a4300; border-radius: 4px; cursor: pointer; }",
       "#" + panelId + " .mbce-chip { padding: 1px 8px; border: 1px solid #d9c27a; background: #fff; color: #6b5a2a; border-radius: 10px; cursor: pointer; font-size: 12px; }",
       "#" + panelId + " .mbce-chip.on { background: #c9a227; border-color: #c9a227; color: #fff; }",
+      "#" + panelId + " .mbce-sub { margin: 6px 0 4px; padding-left: 6px; border-left: 2px solid #e6d69a; }",
+      "#" + panelId + " .mbce-cats { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 8px; }",
+      "#" + panelId + " .mbce-cat { padding: 2px 8px; border: 1px solid #d9c27a; background: #fff; color: #6b5a2a; border-radius: 10px; cursor: pointer; font-size: 12px; }",
+      "#" + panelId + " .mbce-cat.on { background: #6b4f1a; border-color: #6b4f1a; color: #fff; }",
+      "#" + panelId + " .mbce-tags { color: #9a8552; font-size: 11px; }",
     ].join("\n");
     var el = document.createElement("style");
     el.id = cssId;
@@ -256,7 +285,7 @@ window.mbCE_cot = {
 
     var body = el("div", "mbce-body");
     panel.appendChild(body);
-    var status = el("div", "mbce-status", "P1 骨架：数值修改将写入存档并留痕 $mbCE_wrote，可读档回退");
+    var status = el("div", "mbce-status", "就绪：所有写入经 CoT 键适配器并留痕 $mbCE_wrote（可读档回退）。v0.7.0");
     panel.appendChild(status);
 
     document.body.appendChild(panel);
@@ -553,6 +582,10 @@ window.mbCE_cot = {
     minute: { path: "minute", label: "分钟", type: "int", min: 0, max: 59 },
   };
 
+  // R13 声誉维度（来源：setup.people.calculate_reputation 的 populations 与 rep 键）
+  var REP_TYPES = [["exhibitionism", "暴露"], ["promiscuity", "滥交"], ["studiousness", "好学"], ["reservedness", "保守"], ["kindness", "友善"], ["meanness", "刻薄"], ["popularity", "人气"]];
+  var REP_POPS = [["student", "学生"], ["townie", "镇民"], ["faculty", "教职工"]];
+
   function adapter() {
     if (!A) { A = M.adapter; }
     return A;
@@ -753,8 +786,38 @@ window.mbCE_cot = {
         body.appendChild(bRow);
       }
       var base = readGroup(g.path);
+      // 技能阶段直调（R13）：游戏等级 = floor(值/100)，进度 = 值%100（截图 121 → Lv1/21%）
+      function levelRow(key) {
+        var cur = readGroup("pcskills")[key];
+        var n0 = Number(cur); if (!isFinite(n0)) { n0 = 0; }
+        var r = el("div", "mbce-row");
+        var lbl = el("span", "mbce-row-label", "阶段 Lv " + Math.floor(n0 / 100) + "（进度 " + (n0 % 100) + "%）");
+        r.appendChild(lbl);
+        function go(delta) {
+          var c = Number(readGroup("pcskills")[key]); if (!isFinite(c)) { c = 0; }
+          var nv = Math.floor(c / 100) + delta;
+          if (nv < 0) { nv = 0; }
+          var rr = applyEdit("skills", key, nv * 100);
+          if (rr && rr.ok) {
+            lbl.textContent = "阶段 Lv " + nv + "（进度 0%）";
+            var st = M.shell && M.shell.statusEl;
+            if (st) { st.textContent = "技能 " + key + " 已设 Lv " + nv + "（值 " + (nv * 100) + "，$mbCE_wrote 可查）"; }
+          } else {
+            var st2 = M.shell && M.shell.statusEl;
+            if (st2) { st2.textContent = "阶段写入失败：" + ((rr && rr.reason) || "未知"); }
+          }
+        }
+        var dn = el("button", "mbce-btn", "等级 −");
+        dn.addEventListener("click", function () { go(-1); });
+        var up = el("button", "mbce-btn", "等级 +");
+        up.addEventListener("click", function () { go(1); });
+        r.appendChild(dn); r.appendChild(up);
+        return r;
+      }
       g.keys.forEach(function (kv) {
-        body.appendChild(makeRow(kv[1] + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }, kv[0]));
+        var zh = (M.skillZh && M.skillZh[kv[0]]) || kv[1];
+        body.appendChild(makeRow(zh + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }, kv[0]));
+        if (g.id === "skills") { body.appendChild(levelRow(kv[0])); }
       });
     });
     return true;
@@ -782,12 +845,20 @@ window.mbCE_cot = {
   function parseArr(raw) {
     return String(raw).split(/[,，]/).map(function (s) { return s.trim(); }).filter(function (s) { return s; });
   }
+  // 中文倾向名 → 游戏英文键 反查（R13：支持直接输入中文）
+  function normIncl(s) {
+    var zh = M.inclZh || {};
+    for (var k in zh) {
+      if (Object.prototype.hasOwnProperty.call(zh, k) && zh[k] === s) { return k; }
+    }
+    return s;
+  }
   function writePcInclinations(raw) {
     var a = adapter();
     if (!a) { return { ok: false, reason: "no-adapter" }; }
     if (raw === undefined || raw === null) { return { ok: false, reason: "empty" }; }
     var v = String(raw).trim();
-    var arr = v ? parseArr(v) : [];
+    var arr = v ? parseArr(v).map(normIncl) : [];
     var r = a.writeVar("pcinclinations", arr);
     if (r.ok) { r.to = arr; }
     return r;
@@ -866,7 +937,72 @@ window.mbCE_cot = {
     });
     incRow.appendChild(incBtn);
     pc.appendChild(incRow);
-    pc.appendChild(el("p", "mbce-plain", "值来自 setup.inclinations 键（如 Insecure/Shy/basic_exhibitionist），可自定义；留空 = 清空。"));
+    pc.appendChild(el("p", "mbce-plain", "值来自 setup.inclinations 键，可自定义；留空 = 清空。下方为点选式预设（再点取消）。"));
+    // R13 倾向预设 chip：常用中文 + 游戏内完整 98 键（运行时读 setup.inclinations）
+    function readInc() {
+      var v = a.readVar("pcinclinations");
+      return Array.isArray(v) ? v.slice(0) : [];
+    }
+    function setInc(arr) {
+      var r = writePcInclinations(arr.join(","));
+      if (r && r.ok) {
+        incInp.value = Array.isArray(r.to) ? r.to.join(", ") : String(r.to);
+        refreshInc();
+        var st = M.shell && M.shell.statusEl;
+        if (st) { st.textContent = "倾向已更新（" + arr.length + " 项，$mbCE_wrote 可查）"; }
+      } else {
+        var st2 = M.shell && M.shell.statusEl;
+        if (st2) { st2.textContent = "倾向写入失败：" + ((r && r.reason) || "未知"); }
+      }
+    }
+    function gameInclKeys() {
+      try {
+        var S = (typeof Setup !== "undefined" && Setup) || (typeof setup !== "undefined" && setup) || null;
+        if (S && S.inclinations && typeof S.inclinations === "object") {
+          var ks = Object.keys(S.inclinations);
+          if (ks.length) { return ks; }
+        }
+      } catch (e) {}
+      return Object.keys(M.inclZh || {});
+    }
+    var commonHost = el("div", "mbce-row");
+    var allHost = el("div", "mbce-row");
+    function inclChips(keys, host, useZh) {
+      keys.forEach(function (k) {
+        var zh = (M.inclZh && M.inclZh[k]) || "";
+        var c = el("button", "mbce-chip", (useZh && zh) ? zh : k);
+        c.title = (useZh ? k : (zh || k));
+        c.setAttribute("data-inc", k);
+        c.addEventListener("click", function () {
+          var arr = readInc();
+          var i = arr.indexOf(k);
+          if (i >= 0) { arr.splice(i, 1); } else { arr.push(k); }
+          setInc(arr);
+        });
+        host.appendChild(c);
+      });
+    }
+    function refreshInc() {
+      var arr = readInc();
+      [commonHost, allHost].forEach(function (h) {
+        Array.prototype.forEach.call(h.children, function (c) {
+          var on = arr.indexOf(c.getAttribute("data-inc")) >= 0;
+          c.className = "mbce-chip" + (on ? " on" : "");
+        });
+      });
+    }
+    pc.appendChild(el("p", "mbce-plain", "常用倾向（中文，点选即时保存）"));
+    inclChips(Object.keys(M.inclZh || {}), commonHost, true);
+    pc.appendChild(commonHost);
+    var incDet = el("details");
+    incDet.appendChild(el("summary", null, "完整倾向清单（游戏内 " + gameInclKeys().length + " 项，英文键）"));
+    var incDetBody = el("div", "mbce-group");
+    incDetBody.appendChild(el("p", "mbce-plain", "英文键为游戏原始键名（专名不译）；中文释义见游戏「角色倾向 → 完整倾向清单」页。"));
+    inclChips(gameInclKeys(), allHost, false);
+    incDetBody.appendChild(allHost);
+    incDet.appendChild(incDetBody);
+    pc.appendChild(incDet);
+    refreshInc();
     box.appendChild(pc);
     var people = el("div", "mbce-group");
     people.appendChild(el("b", null, "认识的人（$people 自发现）"));
@@ -875,11 +1011,63 @@ window.mbCE_cot = {
     list.forEach(function (p) {
       var line = p.name;
       if (p.relationship !== undefined) { line += " · " + p.relationship; }
-      if (p.special) { line += " · special"; }
+      if (p.special) { line += " · 特殊"; }
       people.appendChild(el("p", "mbce-plain", line));
     });
     box.appendChild(people);
+    // R13 角色声誉（$reputation = {类型:{群体:数值}}，7 类 × 3 群体）
+    var repDet = el("details");
+    repDet.appendChild(el("summary", null, "角色声誉（$reputation，7 类 × 3 群体）"));
+    var repBody = el("div", "mbce-group");
+    repBody.appendChild(el("p", "mbce-plain", "游戏用 get_reputation(类型, 群体) 读取；此块直接写 $reputation 对应值。"));
+    REP_TYPES.forEach(function (tp) {
+      var g2 = el("div", "mbce-sub");
+      g2.appendChild(el("b", null, tp[1] + "（" + tp[0] + "）"));
+      REP_POPS.forEach(function (pp) {
+        var cur = null;
+        var repObj = a.readVar("reputation");
+        if (repObj && repObj[tp[0]] && repObj[tp[0]][pp[0]] !== undefined) { cur = repObj[tp[0]][pp[0]]; }
+        g2.appendChild(rowEl(pp[1] + "（" + pp[0] + "）", cur, function (raw) { return writeReputation(tp[0], pp[0], raw); }, tp[0] + "." + pp[0]));
+      });
+      repBody.appendChild(g2);
+    });
+    repDet.appendChild(repBody);
+    box.appendChild(repDet);
+    // R13 社交媒体 + 职业（只读展示，游戏内部派生数据不直写）
+    var liveDet = el("details");
+    liveDet.appendChild(el("summary", null, "社交媒体 / 职业（只读）"));
+    var liveBody = el("div", "mbce-group");
+    var stream = a.readVar("streaming");
+    if (stream && typeof stream === "object") {
+      var sLines = Object.keys(stream).map(function (k) {
+        var v = stream[k];
+        if (v && typeof v === "object") { return k + "（" + Object.keys(v).length + " 字段）"; }
+        return k + " = " + String(v);
+      });
+      liveBody.appendChild(el("p", "mbce-plain", "社交媒体平台键：" + (sLines.length ? sLines.join("；") : "（空）")));
+    } else {
+      liveBody.appendChild(el("p", "mbce-plain", "社交媒体：$streaming 未创建（游戏内开通后出现）"));
+    }
+    var jobs = a.readVar("jobs");
+    liveBody.appendChild(el("p", "mbce-plain", "工作（$jobs）：" + (Array.isArray(jobs) && jobs.length ? jobs.join("、") : "（无）")));
+    var rr2 = a.readVar("riverrat");
+    if (rr2 && typeof rr2 === "object" && rr2.jobtitle) {
+      liveBody.appendChild(el("p", "mbce-plain", "餐厅打工（$riverrat.jobtitle）：" + rr2.jobtitle));
+    }
+    liveBody.appendChild(el("p", "mbce-plain", "注：社媒粉丝/收益与职业工资由游戏按日结算，直写内部计数会与结算逻辑冲突，故仅展示。"));
+    liveDet.appendChild(liveBody);
+    box.appendChild(liveDet);
     return true;
+  }
+
+  // 声誉写入（R13）：$reputation.类型.群体 = 数值
+  function writeReputation(type, pop, raw) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    var v = Number(raw);
+    if (!isFinite(v)) { return { ok: false, reason: "nan" }; }
+    if (v < -1000 || v > 1000) { return { ok: false, reason: "range:-1000-1000" }; }
+    return a.writeVar("reputation." + type + "." + pop, v);
   }
 
   function discoverPeople() {
@@ -911,6 +1099,9 @@ window.mbCE_cot = {
     applyGroupValue: applyGroupValue,
     resetGroup: resetGroup,
     writePcInclinations: writePcInclinations,
+    writeReputation: writeReputation,
+    repTypes: REP_TYPES,
+    repPops: REP_POPS,
     resetAll: resetAll,
     discoverPeople: discoverPeople,
     writePcField: writePcField,
@@ -990,6 +1181,21 @@ window.mbCE_cot = {
     if (!a) { return { ok: false, reason: "no-adapter" }; }
     var v = (name === undefined || name === null) ? "" : String(name).trim();
     return a.writeVar("crush", v);
+  }
+
+  // R13 关注切换：$favoritepeople 是数组（游戏内 push/splice 维护）
+  function toggleFavorite(name) {
+    var a = adapter();
+    if (!a) { return { ok: false, reason: "no-adapter" }; }
+    if (!name) { return { ok: false, reason: "empty" }; }
+    var cur = a.readVar("favoritepeople");
+    var arr = Array.isArray(cur) ? cur.slice(0) : [];
+    var i = arr.indexOf(String(name));
+    var fav = true;
+    if (i >= 0) { arr.splice(i, 1); fav = false; } else { arr.push(String(name)); }
+    var r = a.writeVar("favoritepeople", arr);
+    if (r.ok) { r.fav = fav; r.to = arr; }
+    return r;
   }
 
   function writeRelationship(person, raw) {
@@ -1140,14 +1346,85 @@ window.mbCE_cot = {
     var nInp = el("input", "mbce-in");
     nInp.type = "text";
     nInp.addEventListener("input", function () {
-      var q = nInp.value.trim().toLowerCase();
-      dets.forEach(function (d) {
-        var nm = (d.getAttribute("data-name") || "").toLowerCase();
-        d.style.display = (!q || nm.indexOf(q) >= 0) ? "" : "none";
-      });
+      applyPersonFilter();
     });
     nRow.appendChild(nInp);
     box.appendChild(nRow);
+    // R13 人物分类筛选：优先调用游戏原生分类函数（all_romantic_partners/all_friends/...）
+    function gamePeopleApi() {
+      try {
+        var S = (typeof Setup !== "undefined" && Setup) || (typeof setup !== "undefined" && setup) || null;
+        if (S && S.people && typeof S.people === "object") { return S.people; }
+      } catch (e) {}
+      return null;
+    }
+    function callNameList(fname, args) {
+      var P = gamePeopleApi();
+      if (!P || typeof P[fname] !== "function") { return []; }
+      try { var r = P[fname].apply(P, args || []); return Array.isArray(r) ? r : []; } catch (e) { return []; }
+    }
+    var catMap = {};
+    function markCat(names, id) {
+      (names || []).forEach(function (n) {
+        if (!n) { return; }
+        (catMap[String(n)] = catMap[String(n)] || {})[id] = true;
+      });
+    }
+    var favs = a.readVar("favoritepeople");
+    markCat(Array.isArray(favs) ? favs : [], "fav");
+    markCat(callNameList("all_romantic_partners", []), "rom");
+    var crushV = a.readVar("crush");
+    if (crushV) { markCat([String(crushV)], "crush"); }
+    markCat(callNameList("all_friends", []), "friend");
+    markCat(callNameList("all_acquaintances", [true]), "acq");
+    markCat(callNameList("all_admirers", []), "admire");
+    markCat(callNameList("all_special", []), "special");
+    markCat(callNameList("all_faculty", []), "faculty");
+    markCat(callNameList("all_coworkers", []), "cowork");
+    markCat(callNameList("all_exes", []), "ex");
+    var PA = gamePeopleApi();
+    if (PA && typeof PA.is_rival === "function") {
+      list.forEach(function (pp) {
+        try { if (PA.is_rival(pp.name)) { markCat([pp.name], "rival"); } } catch (e) {}
+      });
+    }
+    var CAT_IDS = ["fav", "rom", "crush", "friend", "acq", "admire", "special", "faculty", "cowork", "ex", "rival"];
+    var CAT_ICON = { fav: "⭐", rom: "♥", crush: "💗", friend: "😊", acq: "👋", admire: "💗", special: "🤝", faculty: "🎓", cowork: "💼", ex: "💔", rival: "👿" };
+    var catRow = el("div", "mbce-cats");
+    var curCat = "";
+    function applyPersonFilter() {
+      var q = nInp.value.trim().toLowerCase();
+      dets.forEach(function (d) {
+        var nm = (d.getAttribute("data-name") || "").toLowerCase();
+        var cats = (d.getAttribute("data-cats") || "");
+        var okQ = !q || nm.indexOf(q) >= 0;
+        var okC = !curCat || (" " + cats + " ").indexOf(" " + curCat + " ") >= 0;
+        d.style.display = (okQ && okC) ? "" : "none";
+      });
+    }
+    var allChip = el("button", "mbce-cat on", "全部（" + list.length + "）");
+    allChip.addEventListener("click", function () { curCat = ""; refreshCatChips(); applyPersonFilter(); });
+    catRow.appendChild(allChip);
+    var catChips = [allChip];
+    CAT_IDS.forEach(function (id) {
+      var c = el("button", "mbce-cat", (M.catZh && M.catZh[id]) || id);
+      c.setAttribute("data-cat", id);
+      c.addEventListener("click", function () {
+        curCat = (curCat === id) ? "" : id;
+        refreshCatChips();
+        applyPersonFilter();
+      });
+      catChips.push(c);
+      catRow.appendChild(c);
+    });
+    function refreshCatChips() {
+      catChips.forEach(function (c) {
+        var id = c.getAttribute("data-cat") || "";
+        c.className = "mbce-cat" + ((id === "" && curCat === "") || id === curCat ? " on" : "");
+      });
+    }
+    box.appendChild(catRow);
+    box.appendChild(el("p", "mbce-plain", "分类来自游戏原生判定（关注/浪漫/朋友/认识/仰慕/特殊/教职工/同事/前任/对手）；无判定的显示在「全部」。"));
     // 每 NPC 折叠状态记忆（R9）：mbCE_cot_ui_rel 存收起 NPC 名
     var relLsKey = "mbCE_cot_ui_rel";
     function readClosedRel() {
@@ -1172,6 +1449,10 @@ window.mbCE_cot = {
       var head = p.name;
       if (p.relationship !== undefined) { head += " · " + relLabel(p.relationship); }
       if (p.special) { head += " · 特殊"; }
+      var pCats = catMap[p.name] || {};
+      var icons = CAT_IDS.filter(function (id) { return pCats[id]; }).map(function (id) { return CAT_ICON[id]; }).join("");
+      if (icons) { head += "  " + icons; }
+      det.setAttribute("data-cats", CAT_IDS.filter(function (id) { return pCats[id]; }).join(" "));
       det.appendChild(el("summary", null, head));
       var g = el("div", "mbce-group");
       det.appendChild(g);
@@ -1182,6 +1463,20 @@ window.mbCE_cot = {
         if (info.partner !== undefined) { pts.push("partner=" + info.partner); }
         if (pts.length) { g.appendChild(el("p", "mbce-plain", pts.join(" · "))); }
       }
+      // R13 关注切换（$favoritepeople 为数组，游戏内用 push/splice 维护）
+      var favBox = el("div", "mbce-row");
+      var favCur = a.readVar("favoritepeople");
+      var isFav = Array.isArray(favCur) && favCur.indexOf(p.name) >= 0;
+      var favBtn = el("button", "mbce-btn", isFav ? "取消关注 ⭐" : "关注 ⭐");
+      favBtn.addEventListener("click", function () {
+        var r = toggleFavorite(p.name);
+        if (r && r.ok) {
+          favBtn.textContent = r.fav ? "取消关注 ⭐" : "关注 ⭐";
+          statusMsg(r.fav ? "已加入关注（$favoritepeople）" : "已取消关注（$favoritepeople）");
+        } else { statusMsg((r && r.reason) ? r.reason : "失败"); }
+      });
+      favBox.appendChild(favBtn);
+      g.appendChild(favBox);
       var relRow = el("div", "mbce-row");
       relRow.appendChild(el("span", "mbce-row-label", "关系标签（relationship）"));
       var relInp = el("input", "mbce-in");
@@ -1355,6 +1650,7 @@ window.mbCE_cot = {
     version: M.version,
     writeAttitude: writeAttitude,
     setCrush: setCrush,
+    toggleFavorite: toggleFavorite,
     writeRelationship: writeRelationship,
     writePersonField: writePersonField,
     markKnown: markKnown,

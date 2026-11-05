@@ -50,3 +50,14 @@
 - 实机冒烟按用户指令停用为默认门禁（太慢）；交互层验证走消费端人工实机 + 玩家路径走查，注入层以静态取证为准。
 - CoT 版本时效：社区可见 0.8.4c（2026-10-14）；升版必须重跑键核验闭环。
 - 与 ModI18N 共存：CE 面板中文写死、不依赖 i18n.json；CSS/DOM 冲突面纳入冒烟。
+
+## R13 记录（0.7.0，用户实机截图整改）
+
+- **汉化残留**：底部脚注（02-shell 的 statusEl 初始文案）与角色页 `$people` 列表 `· special` 已改；检查渲染路径时注意「角色页」与「关系页」是两条独立渲染代码（R3 只修了关系页）。
+- **技能阶段**：游戏等级 = `floor(值/100)`，进度 = `值%100`（实测 121 → 等级 1、进度 21%）；`setup.people.skillleveled(name, skill, lvl)` 语义为 `lvl <= 等级 || lvl == 1`。CE 阶段按钮写 `(Lv±1)*100`。
+- **声誉**：`$reputation = {类型:{群体:数值}}`；类型固定 7 个（exhibitionism/promiscuity/studiousness/reservedness/kindness/meanness/popularity），群体 3 个（student/townie/faculty），来自 `setup.people.calculate_reputation`。
+- **社媒/职业**：`$streaming` 为平台对象、`$jobs` 为数组、`$riverrat.jobtitle` 为餐厅打工岗位；三者均由游戏按日结算派生，CE 仅只读展示，不写入。
+- **人物分类**（全部来自游戏函数，勿自造判定）：`V.favoritepeople`（关注）、`all_romantic_partners()`、`V.crush`、`all_friends()`、`all_acquaintances(true)`、`all_admirers()`、`all_special()`、`all_faculty()`、`all_coworkers()`、`all_exes()`、`is_rival(name)`。
+- **倾向**：`setup.inclinations` 共 98 键；CE 中文名表 `MCE_INCL_ZH` 只覆盖常用 20 项，其余保留英文键（专名不译）；`writePcInclinations` 支持中文名反查英文键。
+- **模块陷阱**：`readGroup()` 的参数是**路径**（如 `pcskills`）不是组 id（`skills`）——曾因此让阶段行全部读成 0。
+- 自检归档：`.selfcheck/r13-stages-cats-i18n.txt`；单测 67 项。

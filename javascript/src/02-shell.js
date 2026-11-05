@@ -84,6 +84,11 @@
       "#" + panelId + " .mbce-btn { padding: 2px 10px; border: 1px solid #c9a227; background: #f5d76e; color: #5a4300; border-radius: 4px; cursor: pointer; }",
       "#" + panelId + " .mbce-chip { padding: 1px 8px; border: 1px solid #d9c27a; background: #fff; color: #6b5a2a; border-radius: 10px; cursor: pointer; font-size: 12px; }",
       "#" + panelId + " .mbce-chip.on { background: #c9a227; border-color: #c9a227; color: #fff; }",
+      "#" + panelId + " .mbce-sub { margin: 6px 0 4px; padding-left: 6px; border-left: 2px solid #e6d69a; }",
+      "#" + panelId + " .mbce-cats { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 8px; }",
+      "#" + panelId + " .mbce-cat { padding: 2px 8px; border: 1px solid #d9c27a; background: #fff; color: #6b5a2a; border-radius: 10px; cursor: pointer; font-size: 12px; }",
+      "#" + panelId + " .mbce-cat.on { background: #6b4f1a; border-color: #6b4f1a; color: #fff; }",
+      "#" + panelId + " .mbce-tags { color: #9a8552; font-size: 11px; }",
     ].join("\n");
     var el = document.createElement("style");
     el.id = cssId;
@@ -211,7 +216,7 @@
 
     var body = el("div", "mbce-body");
     panel.appendChild(body);
-    var status = el("div", "mbce-status", "P1 骨架：数值修改将写入存档并留痕 $mbCE_wrote，可读档回退");
+    var status = el("div", "mbce-status", "就绪：所有写入经 CoT 键适配器并留痕 $mbCE_wrote（可读档回退）。v0.7.0");
     panel.appendChild(status);
 
     document.body.appendChild(panel);

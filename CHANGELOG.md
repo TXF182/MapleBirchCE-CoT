@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## [0.7.0] - 2026-11-05
+
+R13 大规模质量整改（依用户手机实机截图与逐条批评）：
+
+- **汉化残留清理**：面板底部固定脚注由陈旧的「P1 骨架…」改为「就绪：写入经适配器并留痕 $mbCE_wrote」；角色页 `$people` 列表 `· special` → `· 特殊`（R3 修过关系页同类，本次补角色页渲染路径）。
+- **技能按阶段直调**：每个技能行新增「阶段 Lv N（进度 M%）」+ 「等级 −/+」按钮，等级 = floor(值/100)、进度 = 值%100（实测 121 → Lv1/21%，与游戏「等级 + 到下一等级进度」一致），点按钮写 `(Lv±1)*100`，可精确停在阶段起点；技能行改用 `M.skillZh` 中文名。
+- **玩家侧面板补齐**：
+  - **倾向**（`$pcinclinations`）：常用倾向中文 chip（开放关系/多元恋/半性恋/无性恋/无浪漫/不自信/害羞/自信/善良/忠诚/合群/独行/素食/纯素/鱼素/不忠/挑剔/讨好型/谨慎/热切），点选即时写数组；「完整倾向清单」折叠展开游戏内全部 98 键；文本框支持**直接输中文**（中文名反查英文键，如「开放关系」→ `Open Relationships`）。
+  - **声誉**（`$reputation`）：新增折叠块，7 类（暴露/滥交/好学/保守/友善/刻薄/人气）× 3 群体（学生/镇民/教职工）逐格编辑，范围 -1000~1000；`M.data.writeReputation`。
+  - **社交媒体 / 职业**（只读）：展示 `$streaming` 平台键与字段数、`$jobs` 列表、`$riverrat.jobtitle`；因粉丝/工资按日结算，直写内部计数会与结算逻辑冲突，故不提供写入。
+- **人物页按游戏分类**：关系页新增分类筛选 chip（全部/⭐关注的人/♥浪漫伴侣/💗暗恋/😊朋友/👋认识的人/💗仰慕者/🤝特殊人物/🎓教职工/💼同事/💔前任/👿对手），分类**直接调用游戏原生判定**（`all_romantic_partners/all_friends/all_acquaintances/all_admirers/all_special/all_faculty/all_coworkers/all_exes` + `V.favoritepeople` + `is_rival`）；NPC 卡头部显示所属分类图标，卡内新增「关注 ⭐ / 取消关注」切换（写 `$favoritepeople` 数组）。
+- 取证（scan17-22）：`setup.people.skill_level/skillleveled` 语义、`calculate_reputation` 的 7 类 × 3 群体、`setup.inclinations` 98 键全清单、人物分类函数定义块、ModI18N 中文对照（Favorites→关注的人、Faculty→教职工、Voyeurism→窥淫癖 等）。
+- 单测扩至 67 项。
+
 ## [0.6.10] - 2026-11-04
 
 - R12 三项增强：

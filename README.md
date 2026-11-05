@@ -1,7 +1,7 @@
 # MapleBirchCE-CoT · CoT 全局调试面板（移植项目）
 
 > 将 DoL 版 MapleBirchCE（v1.9.27）移植到 Course of Temptation（CoT 0.8.2i）。
-> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**Phase 6 完成（回归与发布就绪），当前版本 0.6.10**。
+> 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**R13 质量整改完成，当前版本 0.7.0**。
 
 ## 发布（2026-11-04，用户明确指令后执行）
 
@@ -55,3 +55,7 @@
 - 不升版本、不发布、不擅自清理用户文件——均需用户明确指令。
 - 实机冒烟（moli）按用户指令停用为默认门禁（太慢）；`tools/cot_smoke.ps1` 留档为按需复核工具。默认验证 = 静态取证 + 单元测试 + 打包 verifier + 消费端人工实机。
 - 开发闭环：`dev.ps1` 一键（[1/3] `node --check` 动态扫描全部 `src/*.js` → [2/3] `node tests\run-tests.js` 单测 → [3/3] `tools\pack.ps1` verifier 4/4 + SHA256）。
+
+## 0.7.0 本地安装包
+
+- `MapleBirchCE-CoT-0.7.0.mod.zip`（SHA256 `27F0C36ED999C1737F9A12C4899A080BDD9D9CACBB7B671BBFB525E7C7DC6182`）
