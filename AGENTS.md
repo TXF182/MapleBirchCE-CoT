@@ -61,3 +61,14 @@
 - **倾向**：`setup.inclinations` 共 98 键；CE 中文名表 `MCE_INCL_ZH` 只覆盖常用 20 项，其余保留英文键（专名不译）；`writePcInclinations` 支持中文名反查英文键。
 - **模块陷阱**：`readGroup()` 的参数是**路径**（如 `pcskills`）不是组 id（`skills`）——曾因此让阶段行全部读成 0。
 - 自检归档：`.selfcheck/r13-stages-cats-i18n.txt`；单测 67 项。
+## R14 记录（0.7.1，自我扫描）
+
+- **`$favoritepeople` 定案**：数组。全库 =[]/push/splice/indexOf/includes 共 15 处；`V.favoritepeople.delete(name)` 仅 1 处且位于游戏 `removepeople`（对数组调 .delete 属上游 latent bug），CE 不触发。
+- **面板容器**：panel 是 `overflow:hidden` + flex column，`.mbce-body` 必须 `flex:1 1 auto; min-height:0` 才能滚动；缺 min-height 会让长内容下半段不可达。
+- **拖拽**：触摸需 touchstart/touchmove(passive:false)/touchend；只绑 mouse 事件手机端完全无效。
+- **位置记忆**：恢复前必须校验坐标在视口内，否则换屏后面板可能落在屏幕外且无法找回。
+- **留痕**：`$mbCE_wrote` 对对象/数组存快照（引用会失真），并限制 200 条。
+- **`rowEl` 成功反馈**：写成功必须给状态栏提示，否则用户无法区分「没点中」与「已写入」。
+- **文案会腐烂**：`setup.mbStageCE.stage`、关于页「骨架版」、决策行「D4 先不发」都属同类残留——扫陈旧文案时按「阶段标记 / 决策 / 版本号」三类关键词全库 grep（`骨架|P1|先不发|调试面板|D4`）。
+- **版本号**：UI 文案一律读 `M.version`，不再手写。
+- 单测 71 项；自检归档 `.selfcheck/r14-selfscan.txt`。

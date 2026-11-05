@@ -50,6 +50,20 @@
     g.appendChild(el("p", "mbce-plain", "modSC2DataManager：" + (d.sc2dm ? "可用" : "不可用")));
     g.appendChild(el("p", "mbce-plain", "自检键 setup.mbStageCE：" + d.self));
     g.appendChild(el("p", "mbce-plain", "运行版本：MapleBirchCE-CoT " + M.version + " · 目标 CoT " + M.targetGameVersion));
+    // R14：显示游戏内的实际版本并比对目标（避免游戏升级后仍盲信“目标 0.8.2i”）
+    var actualGame = null;
+    try {
+      actualGame = (window.Config && window.Config.saves && window.Config.saves.version) ? String(window.Config.saves.version) : null;
+    } catch (e) {}
+    if (actualGame) {
+      var norm = actualGame.replace("v", "");
+      var match = (norm === M.targetGameVersion) ||
+        (norm.replace("-", "") === M.targetGameVersion.replace("-", "")) ||
+        (norm.indexOf(M.targetGameVersion.replace("-", "")) >= 0);
+      g.appendChild(el("p", "mbce-plain", "游戏实际版本：" + actualGame + (match ? "（与目标一致）" : "（与目标 " + M.targetGameVersion + " 不一致，键位可能变动，请核对）")));
+    } else {
+      g.appendChild(el("p", "mbce-plain", "游戏实际版本：未读到 Config.saves.version（沿用目标 " + M.targetGameVersion + "）"));
+    }
     box.appendChild(g);
 
     // 自检详情（R10）：模块 stage + 适配器目录 + UI 偏好键
@@ -62,7 +76,7 @@
       if (chk) { diag.appendChild(el("p", "mbce-plain", "适配器：目录 " + (chk.catalog ? Object.keys(chk.catalog).length : 0) + " 键 · 留痕 $mbCE_wrote=" + (chk.wroteCount !== undefined ? chk.wroteCount : "?") + " 次")); }
     } catch (e) {}
     try {
-      var keys = ["mbCE_cot_ui", "mbCE_cot_ui_tab", "mbCE_cot_ui_font", "mbCE_cot_ui_pos", "mbCE_cot_ui_stats", "mbCE_cot_ui_rel"];
+      var keys = ["mbCE_cot_ui", "mbCE_cot_ui_tab", "mbCE_cot_ui_font", "mbCE_cot_ui_pos", "mbCE_cot_ui_stats", "mbCE_cot_ui_rel", "mbCE_cot_ui_width"];
       diag.appendChild(el("p", "mbce-plain", "UI 偏好：" + keys.filter(function (k) { return localStorage.getItem(k) !== null; }).join(" / ") || "（无）"));
     } catch (e) {}
     box.appendChild(diag);

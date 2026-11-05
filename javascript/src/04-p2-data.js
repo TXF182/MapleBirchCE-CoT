@@ -110,7 +110,8 @@
     return { ok: count > 0, count: count };
   }
 
-  function rowEl(label, value, onSave, key) {
+  // R14：写成功也给状态栏反馈（此前只有失败提示，用户看不到成功）
+  function rowEl(label, value, onSave, key, onSaved) {
     var wrap = el("div");
     wrap.className = "mbce-row";
     if (key !== undefined) { wrap.setAttribute("data-key", String(key)); }
@@ -122,7 +123,12 @@
     var btn = el("button", "mbce-btn", "保存");
     btn.addEventListener("click", function () {
       var r = onSave(inp.value);
-      if (r && r.ok) { inp.value = String(r.to); }
+      if (r && r.ok) {
+        inp.value = String(r.to);
+        if (typeof onSaved === "function") { try { onSaved(r.to); } catch (e0) {} }
+        var stOk = M.shell && M.shell.statusEl;
+        if (stOk) { stOk.textContent = "已写入 " + (key === undefined ? label : key) + " = " + String(r.to) + "（$mbCE_wrote 可查）"; }
+      }
       else {
         inp.value = (value === undefined || value === null) ? "" : String(value);
         var msg = (r && r.reason) ? (M.i18n && M.i18n.reason ? M.i18n.reason(r.reason) : r.reason) : "失败";
@@ -135,13 +141,14 @@
   }
 
   function renderStats(box) {
+    var lvRef = {}; // R14：技能值行 ↔ 阶段行同步刷新
     var a = adapter();
     if (!a) { box.appendChild(el("p", "mbce-plain", "适配层未就绪")); return true; }
     box.appendChild(el("p", "mbce-plain", "写入即时生效并留痕 $mbCE_wrote；读档可回退。"));
     // 搜索过滤（R9）：按键名/路径过滤所有行，输入即时过滤
     var rows = [];
-    function makeRow(label, value, onSave, key) {
-      var r = rowEl(label, value, onSave, key);
+    function makeRow(label, value, onSave, key, onSaved) {
+      var r = rowEl(label, value, onSave, key, onSaved);
       rows.push(r);
       return r;
     }
@@ -226,6 +233,7 @@
           if (r && r.ok) {
             var st = M.shell && M.shell.statusEl;
             if (st) { st.textContent = "技能已设为 100（" + r.count + " 键，$mbCE_wrote 可查）"; }
+            Object.keys(lvRef).forEach(function (k) { lvRef[k](100); });
           } else {
             var st2 = M.shell && M.shell.statusEl;
             if (st2) { st2.textContent = "批量写入失败：" + ((r && r.reason) || "未知") + "（$mbCE_wrote 可查）"; }
@@ -248,9 +256,13 @@
       function levelRow(key) {
         var cur = readGroup("pcskills")[key];
         var n0 = Number(cur); if (!isFinite(n0)) { n0 = 0; }
-        var r = el("div", "mbce-row");
+        var r = el("div", "mbce-row mbce-wrap");
         var lbl = el("span", "mbce-row-label", "阶段 Lv " + Math.floor(n0 / 100) + "（进度 " + (n0 % 100) + "%）");
         r.appendChild(lbl);
+        lvRef[key] = function (n) {
+          var nn = Number(n); if (!isFinite(nn)) { return; }
+          lbl.textContent = "阶段 Lv " + Math.floor(nn / 100) + "（进度 " + (nn % 100) + "%）";
+        };
         function go(delta) {
           var c = Number(readGroup("pcskills")[key]); if (!isFinite(c)) { c = 0; }
           var nv = Math.floor(c / 100) + delta;
@@ -270,7 +282,7 @@
         var up = el("button", "mbce-btn", "等级 +");
         up.addEventListener("click", function () { go(1); });
         // R13 直接输入等级（写 Lv*100，精确停在阶段起点）
-        var lvInp = el("input", "mbce-in");
+        var lvInp = el("input", "mbce-in mbce-lv");
         lvInp.type = "number";
         lvInp.value = String(Math.floor(n0 / 100));
         lvInp.setAttribute("data-lv", key);
@@ -297,7 +309,7 @@
       }
       g.keys.forEach(function (kv) {
         var zh = (M.skillZh && M.skillZh[kv[0]]) || kv[1];
-        body.appendChild(makeRow(zh + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }, kv[0]));
+        body.appendChild(makeRow(zh + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }, kv[0], g.id === "skills" ? function (to) { if (lvRef[kv[0]]) { lvRef[kv[0]](to); } } : null));
         if (g.id === "skills") { body.appendChild(levelRow(kv[0])); }
       });
     });
@@ -341,7 +353,12 @@
     var v = String(raw).trim();
     var arr = v ? parseArr(v).map(normIncl) : [];
     var r = a.writeVar("pcinclinations", arr);
-    if (r.ok) { r.to = arr; }
+    if (r.ok) {
+      r.to = arr;
+      // 仍含中文 = 词表未收录的中文名，按原文写入但提示（R14）
+      var unk = arr.filter(function (s) { return /[\u4e00-\u9fff]/.test(String(s)); });
+      if (unk.length) { r.warn = "以下中文未匹配游戏键，已按原文写入：" + unk.join("、"); }
+    }
     return r;
   }
 
@@ -409,8 +426,12 @@
     var incBtn = el("button", "mbce-btn", "保存");
     incBtn.addEventListener("click", function () {
       var r = writePcInclinations(incInp.value);
-      if (r && r.ok) { incInp.value = Array.isArray(r.to) ? r.to.join(", ") : String(r.to); }
-      else {
+      if (r && r.ok) {
+        incInp.value = Array.isArray(r.to) ? r.to.join(", ") : String(r.to);
+        refreshInc(); // 文本保存后同步 chip 高亮（R14）
+        var stW = M.shell && M.shell.statusEl;
+        if (stW) { stW.textContent = r.warn ? r.warn : ("倾向已保存（" + r.to.length + " 项，$mbCE_wrote 可查）"); }
+      } else {
         var msg = (r && r.reason) ? (M.i18n && M.i18n.reason ? M.i18n.reason(r.reason) : r.reason) : "失败";
         var st = M.shell && M.shell.statusEl;
         if (st) { st.textContent = "保存未生效：" + msg + "（写档留痕 $mbCE_wrote 可查）"; }
@@ -446,8 +467,8 @@
       } catch (e) {}
       return Object.keys(M.inclZh || {});
     }
-    var commonHost = el("div", "mbce-row");
-    var allHost = el("div", "mbce-row");
+    var commonHost = el("div", "mbce-chips");
+    var allHost = el("div", "mbce-chips");
     function inclChips(keys, host, useZh) {
       keys.forEach(function (k) {
         var zh = (M.inclZh && M.inclZh[k]) || "";
@@ -501,12 +522,12 @@
     repDet.appendChild(el("summary", null, "角色声誉（$reputation，7 类 × 3 群体）"));
     var repBody = el("div", "mbce-group");
     repBody.appendChild(el("p", "mbce-plain", "游戏用 get_reputation(类型, 群体) 读取；此块直接写 $reputation 对应值。"));
+    var repObj = a.readVar("reputation");
     REP_TYPES.forEach(function (tp) {
       var g2 = el("div", "mbce-sub");
       g2.appendChild(el("b", null, tp[1] + "（" + tp[0] + "）"));
       REP_POPS.forEach(function (pp) {
         var cur = null;
-        var repObj = a.readVar("reputation");
         if (repObj && repObj[tp[0]] && repObj[tp[0]][pp[0]] !== undefined) { cur = repObj[tp[0]][pp[0]]; }
         g2.appendChild(rowEl(pp[1] + "（" + pp[0] + "）", cur, function (raw) { return writeReputation(tp[0], pp[0], raw); }, tp[0] + "." + pp[0]));
       });

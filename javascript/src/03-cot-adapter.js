@@ -5,7 +5,7 @@
  *   $minute/$year/$gameday/$gameyear；$varsversion=71；$pc 对象由脚本维护。
  * 纪律（DoL 经验复用）：
  *   - 父级对象缺失 → 拒绝写入；绝不写 undefined；写入留痕 $mbCE_wrote。
- *   - 自检键 setup.mbStageCE（方案 P1 门）。
+ *   - 自检键 setup.mbStageCE（版本 + 就绪标记，游戏内可查）。
  * ========================================================================== */
 "use strict";
 (function () {
@@ -17,6 +17,9 @@
     pcname: "pcname", pcnickname: "pcnickname", pcgender: "pcgender", pcage: "pcage",
     money: "pcmoney", pcskills: "pcskills", pcstats: "pcstats", pcneeds: "pcneeds",
     pcinclinations: "pcinclinations",
+    // R13 新增可写/可读键（关于页自检可看到）
+    reputation: "reputation", streaming: "streaming", jobs: "jobs", favoritepeople: "favoritepeople",
+    people: "people", crush: "crush", location: "location", previouslocation: "previouslocation",
     day: "day", month: "month", hour: "hour", minute: "minute",
     year: "year", gameday: "gameday", gameyear: "gameyear",
   };
@@ -59,7 +62,14 @@
     cur[last] = value;
     try {
       if (!Array.isArray(s.mbCE_wrote)) { s.mbCE_wrote = []; }
-      s.mbCE_wrote.push({ k: path, from: before, to: value, at: Date.now() });
+      // R14：留痕快照（对象/数组做浅拷贝，避免后续修改污染历史记录）
+      var snap = before;
+      try { if (before && typeof before === "object") { snap = JSON.parse(JSON.stringify(before)); } } catch (e1) {}
+      var snapTo = value;
+      try { if (value && typeof value === "object") { snapTo = JSON.parse(JSON.stringify(value)); } } catch (e2) {}
+      s.mbCE_wrote.push({ k: path, from: snap, to: snapTo, at: Date.now() });
+      // R14：留痕上限 200 条，防存档无限膨胀（保留最近记录）
+      if (s.mbCE_wrote.length > 200) { s.mbCE_wrote = s.mbCE_wrote.slice(-200); }
     } catch (e) {}
     return { ok: true, key: path, from: before, to: value };
   }
@@ -83,7 +93,7 @@
       if (!st) { return false; }
       st.mbStageCE = {
         version: M.version,
-        stage: "P1",
+        stage: "ready", // R14：不再写死 P1 骨架标记，改为当前就绪状态
         game: M.game,
         targetGameVersion: M.targetGameVersion,
         at: Date.now(),

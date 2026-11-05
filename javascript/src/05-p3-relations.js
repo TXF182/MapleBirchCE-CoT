@@ -276,25 +276,34 @@
       });
     }
     var CAT_IDS = ["fav", "rom", "crush", "friend", "acq", "admire", "special", "faculty", "cowork", "ex", "rival"];
-    var CAT_ICON = { fav: "⭐", rom: "♥", crush: "💗", friend: "😊", acq: "👋", admire: "💗", special: "🤝", faculty: "🎓", cowork: "💼", ex: "💔", rival: "👿" };
+    var CAT_ICON = { fav: "⭐", rom: "♥", crush: "💘", friend: "😊", acq: "👋", admire: "💗", special: "🤝", faculty: "🎓", cowork: "💼", ex: "💔", rival: "👿" };
     var catRow = el("div", "mbce-cats");
     var curCat = "";
+    // R14：筛选后空结果提示（避免点了分类后一片空白）
+    var emptyHint = el("p", "mbce-plain", "（当前筛选无匹配人物，共 " + list.length + " 人）");
+    emptyHint.style.display = "none";
     function applyPersonFilter() {
       var q = nInp.value.trim().toLowerCase();
+      var shown = 0;
       dets.forEach(function (d) {
         var nm = (d.getAttribute("data-name") || "").toLowerCase();
         var cats = (d.getAttribute("data-cats") || "");
         var okQ = !q || nm.indexOf(q) >= 0;
         var okC = !curCat || (" " + cats + " ").indexOf(" " + curCat + " ") >= 0;
         d.style.display = (okQ && okC) ? "" : "none";
+        if (okQ && okC) { shown++; }
       });
+      var active = (q || curCat);
+      emptyHint.style.display = (!shown && active) ? "" : "none";
+      emptyHint.textContent = (!shown && active) ? ("（当前筛选无匹配人物，共 " + dets.length + " 人）") : "";
     }
     var allChip = el("button", "mbce-cat on", "全部（" + list.length + "）");
     allChip.addEventListener("click", function () { curCat = ""; refreshCatChips(); applyPersonFilter(); });
     catRow.appendChild(allChip);
     var catChips = [allChip];
     CAT_IDS.forEach(function (id) {
-      var c = el("button", "mbce-cat", (M.catZh && M.catZh[id]) || id);
+      var cnt = list.filter(function (p) { return catMap[p.name] && catMap[p.name][id]; }).length;
+      var c = el("button", "mbce-cat", ((M.catZh && M.catZh[id]) || id) + "（" + cnt + "）");
       c.setAttribute("data-cat", id);
       c.addEventListener("click", function () {
         curCat = (curCat === id) ? "" : id;
@@ -312,6 +321,7 @@
     }
     box.appendChild(catRow);
     box.appendChild(el("p", "mbce-plain", "分类来自游戏原生判定（关注/浪漫/朋友/认识/仰慕/特殊/教职工/同事/前任/对手）；无判定的显示在「全部」。"));
+    box.appendChild(emptyHint);
     // 每 NPC 折叠状态记忆（R9）：mbCE_cot_ui_rel 存收起 NPC 名
     var relLsKey = "mbCE_cot_ui_rel";
     function readClosedRel() {

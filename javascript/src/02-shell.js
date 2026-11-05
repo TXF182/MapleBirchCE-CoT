@@ -71,7 +71,7 @@
       "#" + panelId + " .mbce-tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #e3d3a0; background: #f4ead0; }",
       "#" + panelId + " .mbce-tab { flex: 1 1 16%; min-width: 44px; padding: 7px 0; text-align: center; cursor: pointer; color: #6b5a2a; }",
       "#" + panelId + " .mbce-tab.on { background: #fff; color: #a07500; font-weight: 700; border-bottom: 2px solid #c9a227; }",
-      "#" + panelId + " .mbce-body { padding: 10px 12px; overflow-y: auto; }",
+      "#" + panelId + " .mbce-body { padding: 10px 12px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }",
       "#" + panelId + " .mbce-status { padding: 6px 12px; border-top: 1px dashed #d9c27a; color: #6b5a2a; font-size: 12px; }",
       "#" + panelId + " .mbce-fold summary { cursor: pointer; color: #8a6d1f; font-size: 12px; }",
       "#" + panelId + " .mbce-fold p { margin: 6px 0 0; font-size: 12px; color: #5c4a20; }",
@@ -89,6 +89,9 @@
       "#" + panelId + " .mbce-cat { padding: 2px 8px; border: 1px solid #d9c27a; background: #fff; color: #6b5a2a; border-radius: 10px; cursor: pointer; font-size: 12px; }",
       "#" + panelId + " .mbce-cat.on { background: #6b4f1a; border-color: #6b4f1a; color: #fff; }",
       "#" + panelId + " .mbce-tags { color: #9a8552; font-size: 11px; }",
+      "#" + panelId + " .mbce-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }",
+      "#" + panelId + " .mbce-wrap { flex-wrap: wrap; row-gap: 4px; }",
+      "#" + panelId + " .mbce-lv { width: 56px; flex: 0 0 auto; }",
     ].join("\n");
     var el = document.createElement("style");
     el.id = cssId;
@@ -109,17 +112,24 @@
     var tab = TABS.filter(function (t) { return t.id === tabId; })[0];
     box.innerHTML = "";
     if (tab && typeof tab.render === "function") {
-      if (tab.render(box)) { return; }
+      try {
+        if (tab.render(box)) { return; }
+      } catch (e) {
+        // R14 健壮性：单页渲染异常不应让面板空白
+        box.appendChild(el("p", "mbce-plain", "本页渲染出错：" + ((e && e.message) || "未知")));
+        box.appendChild(el("p", "mbce-plain", "可切换其它页签继续使用；把此信息反馈即可定位。"));
+        return;
+      }
     }
     if (tabId === "about") {
-      box.appendChild(el("p", "mbce-plain", "MapleBirch CE · CoT 全局调试面板（骨架版）"));
+      box.appendChild(el("p", "mbce-plain", "MapleBirch CE · CoT 作弊面板"));
       var fold = el("details", "mbce-fold");
       var sum = el("summary", null, "关于本版本");
       fold.appendChild(sum);
       var info = [
         "版本 " + M.version,
         "目标 " + M.game + " " + M.targetGameVersion,
-        "决策：D1 新仓库 / D2 0.8.2i / D4 先不发 / D5 全新游戏 / D6 冒烟非默认门禁",
+        "决策：D1 新仓库 / D2 0.8.2i / D4 已解除（v0.6.10 起已发布）/ D5 全新游戏 / D6 冒烟非默认门禁",
         "自检键：setup.mbStageCE（游戏内可查）",
         "写档留痕：$mbCE_wrote",
       ].join("\n");
@@ -204,6 +214,15 @@
       document.addEventListener("mouseup", onDragUp);
       if (e.preventDefault) { e.preventDefault(); }
     });
+    // R14：触摸拖拽（手机端）
+    head.addEventListener("touchstart", function (e) {
+      var p = dragPt(e);
+      if (!p) { return; }
+      var rect = state.panel.getBoundingClientRect();
+      dragState = { offX: p.clientX - rect.left, offY: p.clientY - rect.top };
+      document.addEventListener("touchmove", onDragMove, { passive: false });
+      document.addEventListener("touchend", onDragUp);
+    }, { passive: true });
 
     var tabs = el("div", "mbce-tabs");
     TABS.forEach(function (t) {
@@ -216,7 +235,7 @@
 
     var body = el("div", "mbce-body");
     panel.appendChild(body);
-    var status = el("div", "mbce-status", "就绪：所有写入经 CoT 键适配器并留痕 $mbCE_wrote（可读档回退）。v0.7.0");
+    var status = el("div", "mbce-status", "就绪：所有写入经 CoT 键适配器并留痕 $mbCE_wrote（可读档回退）。v" + (M.version || ""));
     panel.appendChild(status);
 
     document.body.appendChild(panel);
@@ -240,10 +259,19 @@
       if (savedPos) {
         var pos = JSON.parse(savedPos);
         if (pos && pos.left && pos.top) {
-          panel.style.left = pos.left;
-          panel.style.top = pos.top;
-          panel.style.right = "auto";
-          panel.style.bottom = "auto";
+          // R14 越界校验：换屏/旋屏后坐标出视口则不恢复，避免面板跑到屏幕外找不回
+          var L = parseFloat(pos.left), T = parseFloat(pos.top);
+          var W = (window.innerWidth || 0), H = (window.innerHeight || 0);
+          var inView = !isNaN(L) && !isNaN(T) && L >= 0 && T >= 0 &&
+            (W === 0 || L <= W - 80) && (H === 0 || T <= H - 60);
+          if (inView) {
+            panel.style.left = pos.left;
+            panel.style.top = pos.top;
+            panel.style.right = "auto";
+            panel.style.bottom = "auto";
+          } else {
+            try { localStorage.removeItem(uiPosKey); } catch (e0) {}
+          }
         }
       }
     } catch (e) {}
@@ -257,7 +285,7 @@
     var fab = el("div");
     fab.id = fabId;
     fab.textContent = "CE";
-    fab.title = "MapleBirch CE · CoT（骨架版 " + M.version + "）";
+    fab.title = "MapleBirch CE · CoT v" + M.version + "（点按开合面板）";
     fab.addEventListener("click", function () { toggle(); });
     document.body.appendChild(fab);
     state.fab = fab;
@@ -302,17 +330,29 @@
 
   // 面板拖拽（R7）：按住标题栏拖动，改 left/top（清 right/bottom）
   var dragState = null;
+  // R14：统一取点（鼠标 / 触摸），手机端也可拖动面板
+  function dragPt(e) {
+    if (!e) { return null; }
+    if (e.touches && e.touches[0]) { return e.touches[0]; }
+    if (e.changedTouches && e.changedTouches[0]) { return e.changedTouches[0]; }
+    return e;
+  }
   function onDragMove(e) {
     if (!dragState) { return; }
-    state.panel.style.left = (e.clientX - dragState.offX) + "px";
-    state.panel.style.top = (e.clientY - dragState.offY) + "px";
+    var p = dragPt(e);
+    if (!p || p.clientX === undefined) { return; }
+    state.panel.style.left = (p.clientX - dragState.offX) + "px";
+    state.panel.style.top = (p.clientY - dragState.offY) + "px";
     state.panel.style.right = "auto";
     state.panel.style.bottom = "auto";
+    if (e && e.cancelable && e.preventDefault) { e.preventDefault(); }
   }
   function onDragUp() {
     dragState = null;
     document.removeEventListener("mousemove", onDragMove);
     document.removeEventListener("mouseup", onDragUp);
+    document.removeEventListener("touchmove", onDragMove);
+    document.removeEventListener("touchend", onDragUp);
     try {
       var l = state.panel.style.left;
       if (l) { localStorage.setItem(uiPosKey, JSON.stringify({ left: state.panel.style.left, top: state.panel.style.top })); }

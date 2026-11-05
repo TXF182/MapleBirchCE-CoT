@@ -76,7 +76,7 @@ test("core: mbCE_cot 初始化 + 版本双源", () => {
   const env = makeEnv(); loadAll(env);
   const M = env.sandbox.mbCE_cot;
   assert.ok(M, "mbCE_cot 存在");
-  assert.strictEqual(M.version, "0.7.0");
+  assert.strictEqual(M.version, "0.7.1");
   assert.strictEqual(M.game, "CoT");
   assert.strictEqual(M.targetGameVersion, "0.8.2i");
   assert.strictEqual(M.stage.core, "ok");
@@ -140,19 +140,20 @@ test("adapter: check() 返回目录与留痕计数", () => {
   env.variables.pcmoney = 42;
   const A = env.sandbox.mbCE_cot.adapter;
   const c = A.check();
-  assert.strictEqual(c.version, "0.7.0");
+  assert.strictEqual(c.version, "0.7.1");
   assert.strictEqual(c.catalog.pcname, "Addison Lee");
   assert.strictEqual(c.catalog.money, 42);
   assert.strictEqual(c.catalog.day, undefined, "剧情未初始化时读不到");
   assert.strictEqual(c.wroteCount, 0);
 });
 
-test("自检键: setup.mbStageCE 就位（方案 P1 门）", () => {
+test("自检键: setup.mbStageCE 就位（版本一致 + 就绪标记）", () => {
   const env = makeEnv(); loadAll(env);
   const st = env.sandbox.Setup.mbStageCE;
   assert.ok(st, "Setup.mbStageCE 存在");
-  assert.strictEqual(st.stage, "P1");
-  assert.strictEqual(st.version, "0.7.0");
+  assert.strictEqual(st.stage, "ready", "自检键标记当前就绪状态（不再写死 P1）");
+  assert.strictEqual(st.version, env.sandbox.mbCE_cot.version, "自检键版本与运行时一致");
+  assert.strictEqual(st.version, "0.7.1");
   assert.strictEqual(st.targetGameVersion, "0.8.2i");
   assert.strictEqual(env.sandbox.mbCE_cot.stage.keys, "ok");
 });
@@ -980,6 +981,59 @@ test("R13: 倾向可直输中文（中文名反查英文键）", () => {
   const r = D.writePcInclinations("开放关系，害羞, Insecure");
   assert.strictEqual(r.ok, true);
   assert.deepStrictEqual([...env.variables.pcinclinations], ["Open Relationships", "Shy", "Insecure"], "中文→英文键 + 原键保留");
+});
+
+test("R14: 倾向 chip 容器可换行 + 阶段行可换行 + 等级输入窄框", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  const box = makeEl();
+  D.render("stats", box);
+  D.render("char", box);
+  let chipHost = false, wrapRow = false, lvInp = false;
+  (function walk(n) {
+    (n.children || []).forEach(c => {
+      if (c.className === "mbce-chips" && c.children.length > 3) { chipHost = true; }
+      if (c.className === "mbce-row mbce-wrap") { wrapRow = true; }
+      if (c.className === "mbce-in mbce-lv") { lvInp = true; }
+      walk(c);
+    });
+  })(box);
+  assert.ok(chipHost, "倾向 chip 容器使用 flex-wrap（98 键不溢出）");
+  assert.ok(wrapRow, "技能阶段行允许换行");
+  assert.ok(lvInp, "技能等级输入框窄样式");
+});
+
+test("R14: 未匹配的中文倾向按原文写入并返回 warn", () => {
+  const env = makeEnv(); loadAll(env);
+  const D = env.sandbox.mbCE_cot.data;
+  const r = D.writePcInclinations("开放关系，自定义中文项");
+  assert.strictEqual(r.ok, true);
+  assert.ok(r.warn && r.warn.indexOf("自定义中文项") >= 0, "返回未匹配提示");
+  assert.deepStrictEqual([...env.variables.pcinclinations], ["Open Relationships", "自定义中文项"], "已匹配转键、未匹配保原文");
+});
+
+test("R14: 留痕快照（对象写入后改动不影响记录）+ 上限 200 条", () => {
+  const env = makeEnv(); loadAll(env);
+  const A = env.sandbox.mbCE_cot.adapter;
+  const obj = { x: 1 };
+  A.writeVar("tmpobj", obj);
+  obj.x = 9;
+  const rec = env.variables.mbCE_wrote.filter(r => r.k === "tmpobj");
+  assert.strictEqual(rec.length, 1);
+  assert.deepStrictEqual(rec[0].to, { x: 1 }, "to 为写入时快照");
+  for (let i = 0; i < 260; i++) { A.writeVar("pcmoney", i); }
+  assert.ok(env.variables.mbCE_wrote.length <= 200, "留痕截断到 200 条");
+  assert.ok(env.variables.mbCE_wrote[env.variables.mbCE_wrote.length - 1].to === 259, "保留最近记录");
+});
+
+test("R14: 关系页分类 chip 带人数 + 空结果提示元素", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.State.variables.people = { "甲": {}, "乙": {} };
+  const box = env.sandbox.document.createElement("div");
+  assert.strictEqual(env.sandbox.mbCE_cot.rel.render(box), true);
+  const txt = walkText(box, []).join("|");
+  assert.ok(txt.indexOf("⭐ 关注的人（0）") >= 0 || txt.indexOf("⭐ 关注的人（") >= 0, "分类 chip 带人数");
+  assert.ok(txt.indexOf("无匹配人物") >= 0, "存在空结果提示文案元素");
 });
 
 let failed = 0;

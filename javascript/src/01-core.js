@@ -4,7 +4,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.7.0"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.7.1"; // 双源：boot.json version 必须一致
 
 // R13 中文词表（来源：游戏 setup.* 键 + ModI18N 中文对照；专名保留英文键作 tooltip）
 const MCE_SKILL_ZH = {
@@ -21,7 +21,7 @@ const MCE_INCL_ZH = { // 常用倾向中文（其余 98 键为游戏专名，保
   "Particular": "挑剔", "Pleaser": "讨好型", "Careful": "谨慎", "Eager": "热切",
 };
 const MCE_CAT_ZH = { // 人物分类（对应游戏「人物」面板原版 tab）
-  "fav": "⭐ 关注的人", "rom": "♥ 浪漫伴侣", "crush": "💗 暗恋", "friend": "😊 朋友",
+  "fav": "⭐ 关注的人", "rom": "♥ 浪漫伴侣", "crush": "💘 暗恋", "friend": "😊 朋友",
   "acq": "👋 认识的人", "admire": "💗 仰慕者", "special": "🤝 特殊人物",
   "faculty": "🎓 教职工", "cowork": "💼 同事", "ex": "💔 前任", "rival": "👿 对手",
 };

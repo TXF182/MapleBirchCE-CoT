@@ -6,7 +6,7 @@
  * ========================================================================== */
 "use strict";
 
-const MCE_VERSION = "0.7.0"; // 双源：boot.json version 必须一致
+const MCE_VERSION = "0.7.1"; // 双源：boot.json version 必须一致
 
 // R13 中文词表（来源：游戏 setup.* 键 + ModI18N 中文对照；专名保留英文键作 tooltip）
 const MCE_SKILL_ZH = {
@@ -23,7 +23,7 @@ const MCE_INCL_ZH = { // 常用倾向中文（其余 98 键为游戏专名，保
   "Particular": "挑剔", "Pleaser": "讨好型", "Careful": "谨慎", "Eager": "热切",
 };
 const MCE_CAT_ZH = { // 人物分类（对应游戏「人物」面板原版 tab）
-  "fav": "⭐ 关注的人", "rom": "♥ 浪漫伴侣", "crush": "💗 暗恋", "friend": "😊 朋友",
+  "fav": "⭐ 关注的人", "rom": "♥ 浪漫伴侣", "crush": "💘 暗恋", "friend": "😊 朋友",
   "acq": "👋 认识的人", "admire": "💗 仰慕者", "special": "🤝 特殊人物",
   "faculty": "🎓 教职工", "cowork": "💼 同事", "ex": "💔 前任", "rival": "👿 对手",
 };
@@ -140,7 +140,7 @@ window.mbCE_cot = {
       "#" + panelId + " .mbce-tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #e3d3a0; background: #f4ead0; }",
       "#" + panelId + " .mbce-tab { flex: 1 1 16%; min-width: 44px; padding: 7px 0; text-align: center; cursor: pointer; color: #6b5a2a; }",
       "#" + panelId + " .mbce-tab.on { background: #fff; color: #a07500; font-weight: 700; border-bottom: 2px solid #c9a227; }",
-      "#" + panelId + " .mbce-body { padding: 10px 12px; overflow-y: auto; }",
+      "#" + panelId + " .mbce-body { padding: 10px 12px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }",
       "#" + panelId + " .mbce-status { padding: 6px 12px; border-top: 1px dashed #d9c27a; color: #6b5a2a; font-size: 12px; }",
       "#" + panelId + " .mbce-fold summary { cursor: pointer; color: #8a6d1f; font-size: 12px; }",
       "#" + panelId + " .mbce-fold p { margin: 6px 0 0; font-size: 12px; color: #5c4a20; }",
@@ -158,6 +158,9 @@ window.mbCE_cot = {
       "#" + panelId + " .mbce-cat { padding: 2px 8px; border: 1px solid #d9c27a; background: #fff; color: #6b5a2a; border-radius: 10px; cursor: pointer; font-size: 12px; }",
       "#" + panelId + " .mbce-cat.on { background: #6b4f1a; border-color: #6b4f1a; color: #fff; }",
       "#" + panelId + " .mbce-tags { color: #9a8552; font-size: 11px; }",
+      "#" + panelId + " .mbce-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }",
+      "#" + panelId + " .mbce-wrap { flex-wrap: wrap; row-gap: 4px; }",
+      "#" + panelId + " .mbce-lv { width: 56px; flex: 0 0 auto; }",
     ].join("\n");
     var el = document.createElement("style");
     el.id = cssId;
@@ -178,17 +181,24 @@ window.mbCE_cot = {
     var tab = TABS.filter(function (t) { return t.id === tabId; })[0];
     box.innerHTML = "";
     if (tab && typeof tab.render === "function") {
-      if (tab.render(box)) { return; }
+      try {
+        if (tab.render(box)) { return; }
+      } catch (e) {
+        // R14 健壮性：单页渲染异常不应让面板空白
+        box.appendChild(el("p", "mbce-plain", "本页渲染出错：" + ((e && e.message) || "未知")));
+        box.appendChild(el("p", "mbce-plain", "可切换其它页签继续使用；把此信息反馈即可定位。"));
+        return;
+      }
     }
     if (tabId === "about") {
-      box.appendChild(el("p", "mbce-plain", "MapleBirch CE · CoT 全局调试面板（骨架版）"));
+      box.appendChild(el("p", "mbce-plain", "MapleBirch CE · CoT 作弊面板"));
       var fold = el("details", "mbce-fold");
       var sum = el("summary", null, "关于本版本");
       fold.appendChild(sum);
       var info = [
         "版本 " + M.version,
         "目标 " + M.game + " " + M.targetGameVersion,
-        "决策：D1 新仓库 / D2 0.8.2i / D4 先不发 / D5 全新游戏 / D6 冒烟非默认门禁",
+        "决策：D1 新仓库 / D2 0.8.2i / D4 已解除（v0.6.10 起已发布）/ D5 全新游戏 / D6 冒烟非默认门禁",
         "自检键：setup.mbStageCE（游戏内可查）",
         "写档留痕：$mbCE_wrote",
       ].join("\n");
@@ -273,6 +283,15 @@ window.mbCE_cot = {
       document.addEventListener("mouseup", onDragUp);
       if (e.preventDefault) { e.preventDefault(); }
     });
+    // R14：触摸拖拽（手机端）
+    head.addEventListener("touchstart", function (e) {
+      var p = dragPt(e);
+      if (!p) { return; }
+      var rect = state.panel.getBoundingClientRect();
+      dragState = { offX: p.clientX - rect.left, offY: p.clientY - rect.top };
+      document.addEventListener("touchmove", onDragMove, { passive: false });
+      document.addEventListener("touchend", onDragUp);
+    }, { passive: true });
 
     var tabs = el("div", "mbce-tabs");
     TABS.forEach(function (t) {
@@ -285,7 +304,7 @@ window.mbCE_cot = {
 
     var body = el("div", "mbce-body");
     panel.appendChild(body);
-    var status = el("div", "mbce-status", "就绪：所有写入经 CoT 键适配器并留痕 $mbCE_wrote（可读档回退）。v0.7.0");
+    var status = el("div", "mbce-status", "就绪：所有写入经 CoT 键适配器并留痕 $mbCE_wrote（可读档回退）。v" + (M.version || ""));
     panel.appendChild(status);
 
     document.body.appendChild(panel);
@@ -309,10 +328,19 @@ window.mbCE_cot = {
       if (savedPos) {
         var pos = JSON.parse(savedPos);
         if (pos && pos.left && pos.top) {
-          panel.style.left = pos.left;
-          panel.style.top = pos.top;
-          panel.style.right = "auto";
-          panel.style.bottom = "auto";
+          // R14 越界校验：换屏/旋屏后坐标出视口则不恢复，避免面板跑到屏幕外找不回
+          var L = parseFloat(pos.left), T = parseFloat(pos.top);
+          var W = (window.innerWidth || 0), H = (window.innerHeight || 0);
+          var inView = !isNaN(L) && !isNaN(T) && L >= 0 && T >= 0 &&
+            (W === 0 || L <= W - 80) && (H === 0 || T <= H - 60);
+          if (inView) {
+            panel.style.left = pos.left;
+            panel.style.top = pos.top;
+            panel.style.right = "auto";
+            panel.style.bottom = "auto";
+          } else {
+            try { localStorage.removeItem(uiPosKey); } catch (e0) {}
+          }
         }
       }
     } catch (e) {}
@@ -326,7 +354,7 @@ window.mbCE_cot = {
     var fab = el("div");
     fab.id = fabId;
     fab.textContent = "CE";
-    fab.title = "MapleBirch CE · CoT（骨架版 " + M.version + "）";
+    fab.title = "MapleBirch CE · CoT v" + M.version + "（点按开合面板）";
     fab.addEventListener("click", function () { toggle(); });
     document.body.appendChild(fab);
     state.fab = fab;
@@ -371,17 +399,29 @@ window.mbCE_cot = {
 
   // 面板拖拽（R7）：按住标题栏拖动，改 left/top（清 right/bottom）
   var dragState = null;
+  // R14：统一取点（鼠标 / 触摸），手机端也可拖动面板
+  function dragPt(e) {
+    if (!e) { return null; }
+    if (e.touches && e.touches[0]) { return e.touches[0]; }
+    if (e.changedTouches && e.changedTouches[0]) { return e.changedTouches[0]; }
+    return e;
+  }
   function onDragMove(e) {
     if (!dragState) { return; }
-    state.panel.style.left = (e.clientX - dragState.offX) + "px";
-    state.panel.style.top = (e.clientY - dragState.offY) + "px";
+    var p = dragPt(e);
+    if (!p || p.clientX === undefined) { return; }
+    state.panel.style.left = (p.clientX - dragState.offX) + "px";
+    state.panel.style.top = (p.clientY - dragState.offY) + "px";
     state.panel.style.right = "auto";
     state.panel.style.bottom = "auto";
+    if (e && e.cancelable && e.preventDefault) { e.preventDefault(); }
   }
   function onDragUp() {
     dragState = null;
     document.removeEventListener("mousemove", onDragMove);
     document.removeEventListener("mouseup", onDragUp);
+    document.removeEventListener("touchmove", onDragMove);
+    document.removeEventListener("touchend", onDragUp);
     try {
       var l = state.panel.style.left;
       if (l) { localStorage.setItem(uiPosKey, JSON.stringify({ left: state.panel.style.left, top: state.panel.style.top })); }
@@ -430,7 +470,7 @@ window.mbCE_cot = {
  *   $minute/$year/$gameday/$gameyear；$varsversion=71；$pc 对象由脚本维护。
  * 纪律（DoL 经验复用）：
  *   - 父级对象缺失 → 拒绝写入；绝不写 undefined；写入留痕 $mbCE_wrote。
- *   - 自检键 setup.mbStageCE（方案 P1 门）。
+ *   - 自检键 setup.mbStageCE（版本 + 就绪标记，游戏内可查）。
  * ========================================================================== */
 "use strict";
 (function () {
@@ -442,6 +482,9 @@ window.mbCE_cot = {
     pcname: "pcname", pcnickname: "pcnickname", pcgender: "pcgender", pcage: "pcage",
     money: "pcmoney", pcskills: "pcskills", pcstats: "pcstats", pcneeds: "pcneeds",
     pcinclinations: "pcinclinations",
+    // R13 新增可写/可读键（关于页自检可看到）
+    reputation: "reputation", streaming: "streaming", jobs: "jobs", favoritepeople: "favoritepeople",
+    people: "people", crush: "crush", location: "location", previouslocation: "previouslocation",
     day: "day", month: "month", hour: "hour", minute: "minute",
     year: "year", gameday: "gameday", gameyear: "gameyear",
   };
@@ -484,7 +527,14 @@ window.mbCE_cot = {
     cur[last] = value;
     try {
       if (!Array.isArray(s.mbCE_wrote)) { s.mbCE_wrote = []; }
-      s.mbCE_wrote.push({ k: path, from: before, to: value, at: Date.now() });
+      // R14：留痕快照（对象/数组做浅拷贝，避免后续修改污染历史记录）
+      var snap = before;
+      try { if (before && typeof before === "object") { snap = JSON.parse(JSON.stringify(before)); } } catch (e1) {}
+      var snapTo = value;
+      try { if (value && typeof value === "object") { snapTo = JSON.parse(JSON.stringify(value)); } } catch (e2) {}
+      s.mbCE_wrote.push({ k: path, from: snap, to: snapTo, at: Date.now() });
+      // R14：留痕上限 200 条，防存档无限膨胀（保留最近记录）
+      if (s.mbCE_wrote.length > 200) { s.mbCE_wrote = s.mbCE_wrote.slice(-200); }
     } catch (e) {}
     return { ok: true, key: path, from: before, to: value };
   }
@@ -508,7 +558,7 @@ window.mbCE_cot = {
       if (!st) { return false; }
       st.mbStageCE = {
         version: M.version,
-        stage: "P1",
+        stage: "ready", // R14：不再写死 P1 骨架标记，改为当前就绪状态
         game: M.game,
         targetGameVersion: M.targetGameVersion,
         at: Date.now(),
@@ -652,7 +702,8 @@ window.mbCE_cot = {
     return { ok: count > 0, count: count };
   }
 
-  function rowEl(label, value, onSave, key) {
+  // R14：写成功也给状态栏反馈（此前只有失败提示，用户看不到成功）
+  function rowEl(label, value, onSave, key, onSaved) {
     var wrap = el("div");
     wrap.className = "mbce-row";
     if (key !== undefined) { wrap.setAttribute("data-key", String(key)); }
@@ -664,7 +715,12 @@ window.mbCE_cot = {
     var btn = el("button", "mbce-btn", "保存");
     btn.addEventListener("click", function () {
       var r = onSave(inp.value);
-      if (r && r.ok) { inp.value = String(r.to); }
+      if (r && r.ok) {
+        inp.value = String(r.to);
+        if (typeof onSaved === "function") { try { onSaved(r.to); } catch (e0) {} }
+        var stOk = M.shell && M.shell.statusEl;
+        if (stOk) { stOk.textContent = "已写入 " + (key === undefined ? label : key) + " = " + String(r.to) + "（$mbCE_wrote 可查）"; }
+      }
       else {
         inp.value = (value === undefined || value === null) ? "" : String(value);
         var msg = (r && r.reason) ? (M.i18n && M.i18n.reason ? M.i18n.reason(r.reason) : r.reason) : "失败";
@@ -677,13 +733,14 @@ window.mbCE_cot = {
   }
 
   function renderStats(box) {
+    var lvRef = {}; // R14：技能值行 ↔ 阶段行同步刷新
     var a = adapter();
     if (!a) { box.appendChild(el("p", "mbce-plain", "适配层未就绪")); return true; }
     box.appendChild(el("p", "mbce-plain", "写入即时生效并留痕 $mbCE_wrote；读档可回退。"));
     // 搜索过滤（R9）：按键名/路径过滤所有行，输入即时过滤
     var rows = [];
-    function makeRow(label, value, onSave, key) {
-      var r = rowEl(label, value, onSave, key);
+    function makeRow(label, value, onSave, key, onSaved) {
+      var r = rowEl(label, value, onSave, key, onSaved);
       rows.push(r);
       return r;
     }
@@ -768,6 +825,7 @@ window.mbCE_cot = {
           if (r && r.ok) {
             var st = M.shell && M.shell.statusEl;
             if (st) { st.textContent = "技能已设为 100（" + r.count + " 键，$mbCE_wrote 可查）"; }
+            Object.keys(lvRef).forEach(function (k) { lvRef[k](100); });
           } else {
             var st2 = M.shell && M.shell.statusEl;
             if (st2) { st2.textContent = "批量写入失败：" + ((r && r.reason) || "未知") + "（$mbCE_wrote 可查）"; }
@@ -790,9 +848,13 @@ window.mbCE_cot = {
       function levelRow(key) {
         var cur = readGroup("pcskills")[key];
         var n0 = Number(cur); if (!isFinite(n0)) { n0 = 0; }
-        var r = el("div", "mbce-row");
+        var r = el("div", "mbce-row mbce-wrap");
         var lbl = el("span", "mbce-row-label", "阶段 Lv " + Math.floor(n0 / 100) + "（进度 " + (n0 % 100) + "%）");
         r.appendChild(lbl);
+        lvRef[key] = function (n) {
+          var nn = Number(n); if (!isFinite(nn)) { return; }
+          lbl.textContent = "阶段 Lv " + Math.floor(nn / 100) + "（进度 " + (nn % 100) + "%）";
+        };
         function go(delta) {
           var c = Number(readGroup("pcskills")[key]); if (!isFinite(c)) { c = 0; }
           var nv = Math.floor(c / 100) + delta;
@@ -812,7 +874,7 @@ window.mbCE_cot = {
         var up = el("button", "mbce-btn", "等级 +");
         up.addEventListener("click", function () { go(1); });
         // R13 直接输入等级（写 Lv*100，精确停在阶段起点）
-        var lvInp = el("input", "mbce-in");
+        var lvInp = el("input", "mbce-in mbce-lv");
         lvInp.type = "number";
         lvInp.value = String(Math.floor(n0 / 100));
         lvInp.setAttribute("data-lv", key);
@@ -839,7 +901,7 @@ window.mbCE_cot = {
       }
       g.keys.forEach(function (kv) {
         var zh = (M.skillZh && M.skillZh[kv[0]]) || kv[1];
-        body.appendChild(makeRow(zh + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }, kv[0]));
+        body.appendChild(makeRow(zh + "（" + kv[0] + "）", base[kv[0]], function (raw) { return applyEdit(g.id, kv[0], raw); }, kv[0], g.id === "skills" ? function (to) { if (lvRef[kv[0]]) { lvRef[kv[0]](to); } } : null));
         if (g.id === "skills") { body.appendChild(levelRow(kv[0])); }
       });
     });
@@ -883,7 +945,12 @@ window.mbCE_cot = {
     var v = String(raw).trim();
     var arr = v ? parseArr(v).map(normIncl) : [];
     var r = a.writeVar("pcinclinations", arr);
-    if (r.ok) { r.to = arr; }
+    if (r.ok) {
+      r.to = arr;
+      // 仍含中文 = 词表未收录的中文名，按原文写入但提示（R14）
+      var unk = arr.filter(function (s) { return /[\u4e00-\u9fff]/.test(String(s)); });
+      if (unk.length) { r.warn = "以下中文未匹配游戏键，已按原文写入：" + unk.join("、"); }
+    }
     return r;
   }
 
@@ -951,8 +1018,12 @@ window.mbCE_cot = {
     var incBtn = el("button", "mbce-btn", "保存");
     incBtn.addEventListener("click", function () {
       var r = writePcInclinations(incInp.value);
-      if (r && r.ok) { incInp.value = Array.isArray(r.to) ? r.to.join(", ") : String(r.to); }
-      else {
+      if (r && r.ok) {
+        incInp.value = Array.isArray(r.to) ? r.to.join(", ") : String(r.to);
+        refreshInc(); // 文本保存后同步 chip 高亮（R14）
+        var stW = M.shell && M.shell.statusEl;
+        if (stW) { stW.textContent = r.warn ? r.warn : ("倾向已保存（" + r.to.length + " 项，$mbCE_wrote 可查）"); }
+      } else {
         var msg = (r && r.reason) ? (M.i18n && M.i18n.reason ? M.i18n.reason(r.reason) : r.reason) : "失败";
         var st = M.shell && M.shell.statusEl;
         if (st) { st.textContent = "保存未生效：" + msg + "（写档留痕 $mbCE_wrote 可查）"; }
@@ -988,8 +1059,8 @@ window.mbCE_cot = {
       } catch (e) {}
       return Object.keys(M.inclZh || {});
     }
-    var commonHost = el("div", "mbce-row");
-    var allHost = el("div", "mbce-row");
+    var commonHost = el("div", "mbce-chips");
+    var allHost = el("div", "mbce-chips");
     function inclChips(keys, host, useZh) {
       keys.forEach(function (k) {
         var zh = (M.inclZh && M.inclZh[k]) || "";
@@ -1043,12 +1114,12 @@ window.mbCE_cot = {
     repDet.appendChild(el("summary", null, "角色声誉（$reputation，7 类 × 3 群体）"));
     var repBody = el("div", "mbce-group");
     repBody.appendChild(el("p", "mbce-plain", "游戏用 get_reputation(类型, 群体) 读取；此块直接写 $reputation 对应值。"));
+    var repObj = a.readVar("reputation");
     REP_TYPES.forEach(function (tp) {
       var g2 = el("div", "mbce-sub");
       g2.appendChild(el("b", null, tp[1] + "（" + tp[0] + "）"));
       REP_POPS.forEach(function (pp) {
         var cur = null;
-        var repObj = a.readVar("reputation");
         if (repObj && repObj[tp[0]] && repObj[tp[0]][pp[0]] !== undefined) { cur = repObj[tp[0]][pp[0]]; }
         g2.appendChild(rowEl(pp[1] + "（" + pp[0] + "）", cur, function (raw) { return writeReputation(tp[0], pp[0], raw); }, tp[0] + "." + pp[0]));
       });
@@ -1412,25 +1483,34 @@ window.mbCE_cot = {
       });
     }
     var CAT_IDS = ["fav", "rom", "crush", "friend", "acq", "admire", "special", "faculty", "cowork", "ex", "rival"];
-    var CAT_ICON = { fav: "⭐", rom: "♥", crush: "💗", friend: "😊", acq: "👋", admire: "💗", special: "🤝", faculty: "🎓", cowork: "💼", ex: "💔", rival: "👿" };
+    var CAT_ICON = { fav: "⭐", rom: "♥", crush: "💘", friend: "😊", acq: "👋", admire: "💗", special: "🤝", faculty: "🎓", cowork: "💼", ex: "💔", rival: "👿" };
     var catRow = el("div", "mbce-cats");
     var curCat = "";
+    // R14：筛选后空结果提示（避免点了分类后一片空白）
+    var emptyHint = el("p", "mbce-plain", "（当前筛选无匹配人物，共 " + list.length + " 人）");
+    emptyHint.style.display = "none";
     function applyPersonFilter() {
       var q = nInp.value.trim().toLowerCase();
+      var shown = 0;
       dets.forEach(function (d) {
         var nm = (d.getAttribute("data-name") || "").toLowerCase();
         var cats = (d.getAttribute("data-cats") || "");
         var okQ = !q || nm.indexOf(q) >= 0;
         var okC = !curCat || (" " + cats + " ").indexOf(" " + curCat + " ") >= 0;
         d.style.display = (okQ && okC) ? "" : "none";
+        if (okQ && okC) { shown++; }
       });
+      var active = (q || curCat);
+      emptyHint.style.display = (!shown && active) ? "" : "none";
+      emptyHint.textContent = (!shown && active) ? ("（当前筛选无匹配人物，共 " + dets.length + " 人）") : "";
     }
     var allChip = el("button", "mbce-cat on", "全部（" + list.length + "）");
     allChip.addEventListener("click", function () { curCat = ""; refreshCatChips(); applyPersonFilter(); });
     catRow.appendChild(allChip);
     var catChips = [allChip];
     CAT_IDS.forEach(function (id) {
-      var c = el("button", "mbce-cat", (M.catZh && M.catZh[id]) || id);
+      var cnt = list.filter(function (p) { return catMap[p.name] && catMap[p.name][id]; }).length;
+      var c = el("button", "mbce-cat", ((M.catZh && M.catZh[id]) || id) + "（" + cnt + "）");
       c.setAttribute("data-cat", id);
       c.addEventListener("click", function () {
         curCat = (curCat === id) ? "" : id;
@@ -1448,6 +1528,7 @@ window.mbCE_cot = {
     }
     box.appendChild(catRow);
     box.appendChild(el("p", "mbce-plain", "分类来自游戏原生判定（关注/浪漫/朋友/认识/仰慕/特殊/教职工/同事/前任/对手）；无判定的显示在「全部」。"));
+    box.appendChild(emptyHint);
     // 每 NPC 折叠状态记忆（R9）：mbCE_cot_ui_rel 存收起 NPC 名
     var relLsKey = "mbCE_cot_ui_rel";
     function readClosedRel() {
@@ -2017,6 +2098,20 @@ window.mbCE_cot = {
     g.appendChild(el("p", "mbce-plain", "modSC2DataManager：" + (d.sc2dm ? "可用" : "不可用")));
     g.appendChild(el("p", "mbce-plain", "自检键 setup.mbStageCE：" + d.self));
     g.appendChild(el("p", "mbce-plain", "运行版本：MapleBirchCE-CoT " + M.version + " · 目标 CoT " + M.targetGameVersion));
+    // R14：显示游戏内的实际版本并比对目标（避免游戏升级后仍盲信“目标 0.8.2i”）
+    var actualGame = null;
+    try {
+      actualGame = (window.Config && window.Config.saves && window.Config.saves.version) ? String(window.Config.saves.version) : null;
+    } catch (e) {}
+    if (actualGame) {
+      var norm = actualGame.replace("v", "");
+      var match = (norm === M.targetGameVersion) ||
+        (norm.replace("-", "") === M.targetGameVersion.replace("-", "")) ||
+        (norm.indexOf(M.targetGameVersion.replace("-", "")) >= 0);
+      g.appendChild(el("p", "mbce-plain", "游戏实际版本：" + actualGame + (match ? "（与目标一致）" : "（与目标 " + M.targetGameVersion + " 不一致，键位可能变动，请核对）")));
+    } else {
+      g.appendChild(el("p", "mbce-plain", "游戏实际版本：未读到 Config.saves.version（沿用目标 " + M.targetGameVersion + "）"));
+    }
     box.appendChild(g);
 
     // 自检详情（R10）：模块 stage + 适配器目录 + UI 偏好键
@@ -2029,7 +2124,7 @@ window.mbCE_cot = {
       if (chk) { diag.appendChild(el("p", "mbce-plain", "适配器：目录 " + (chk.catalog ? Object.keys(chk.catalog).length : 0) + " 键 · 留痕 $mbCE_wrote=" + (chk.wroteCount !== undefined ? chk.wroteCount : "?") + " 次")); }
     } catch (e) {}
     try {
-      var keys = ["mbCE_cot_ui", "mbCE_cot_ui_tab", "mbCE_cot_ui_font", "mbCE_cot_ui_pos", "mbCE_cot_ui_stats", "mbCE_cot_ui_rel"];
+      var keys = ["mbCE_cot_ui", "mbCE_cot_ui_tab", "mbCE_cot_ui_font", "mbCE_cot_ui_pos", "mbCE_cot_ui_stats", "mbCE_cot_ui_rel", "mbCE_cot_ui_width"];
       diag.appendChild(el("p", "mbce-plain", "UI 偏好：" + keys.filter(function (k) { return localStorage.getItem(k) !== null; }).join(" / ") || "（无）"));
     } catch (e) {}
     box.appendChild(diag);
