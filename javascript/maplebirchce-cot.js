@@ -180,9 +180,12 @@ window.mbCE_cot = {
       "#" + fabId + ":hover { filter: brightness(1.08); }",
       "#" + panelId + " { position: fixed; right: 22px; bottom: 84px; z-index: 2147483000; width: 340px; max-height: 72vh; overflow: hidden; background: #fdfaf1; color: #3a2c10; border: 1px solid #d9c27a; border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.4); font: 14px/1.6 Arial, sans-serif; display: none; flex-direction: column; }",
       "#" + panelId + ".open { display: flex; }",
-      "#" + panelId + " .mbce-head { padding: 10px 12px; background: #6b4f1a; color: #ffe9a8; border-radius: 11px 11px 0 0; }",
-      "#" + panelId + " .mbce-head b { font-size: 15px; }",
-      "#" + panelId + " .mbce-badge { float: right; font-size: 12px; background: #3f7d3f; color: #eaffea; border-radius: 8px; padding: 0 8px; }",
+      "#" + panelId + " .mbce-head { padding: 10px 12px; background: #6b4f1a; color: #ffe9a8; border-radius: 11px 11px 0 0; display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 6px; }",
+      // R15c：窄屏（300px 宽）下「标题 + 4 个按钮 + 徽标」放不进一行，标题允许压缩省略而不是把按钮挤出去
+      "#" + panelId + " .mbce-head b { font-size: 15px; flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }",
+      // R15c：A-/A+/W-/W+ 之前是无样式的 span，手机上看起来像普通文字且触摸目标过小
+      "#" + panelId + " .mbce-head-fs, #" + panelId + " .mbce-head-w { display: inline-block; min-width: 30px; height: 26px; line-height: 26px; padding: 0 8px; margin-right: 6px; border-radius: 6px; background: rgba(255,255,255,.18); color: #ffe9a8; font-size: 13px; text-align: center; touch-action: manipulation; }",
+      "#" + panelId + " .mbce-badge { flex: 0 0 auto; margin-left: auto; font-size: 12px; background: #3f7d3f; color: #eaffea; border-radius: 8px; padding: 0 8px; }",
       "#" + panelId + " .mbce-badge.err { background: #a33; }",
       "#" + panelId + " .mbce-tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #e3d3a0; background: #f4ead0; }",
       "#" + panelId + " .mbce-tab { flex: 1 1 16%; min-width: 44px; padding: 7px 0; text-align: center; cursor: pointer; color: #6b5a2a; }",
@@ -259,12 +262,18 @@ window.mbCE_cot = {
     }
   }
 
-  function renderContent(tabId) {
+  function nowMs() {
+    try {
+      if (typeof performance !== "undefined" && performance && typeof performance.now === "function") { return performance.now(); }
+    } catch (e) {}
+    return (new Date()).getTime();
+  }
+  function renderContent(tabId, force) {
     var box = state.content;
     if (!box) { return; }
     var tab = TABS.filter(function (t) { return t.id === tabId; })[0];
-    // 同页重复渲染：丢弃本页缓存，强制重建
-    if (renderedTab === tabId) { tabCache[tabId] = undefined; }
+    // 显式 force 或同页重复渲染（外部主动调用）：丢弃本页缓存，强制重建
+    if (renderedTab === tabId && force) { tabCache[tabId] = undefined; tabStale[tabId] = true; }
     if (!tabStale[tabId] && restoreCache(box, tabId)) {
       renderedTab = tabId;
       M.perf.cacheHit = (M.perf.cacheHit || 0) + 1;
@@ -272,7 +281,7 @@ window.mbCE_cot = {
     }
     if (renderedTab && renderedTab !== tabId) { snapshot(renderedTab); }
     clearBox(box);
-    var t0 = (new Date()).getTime();
+    var t0 = nowMs();
     var outNodes = [];
     try {
       if (tab && typeof tab.render === "function") { tab.render(box); }
@@ -308,12 +317,13 @@ window.mbCE_cot = {
     tabStale[tabId] = false;
     renderedTab = tabId;
     M.perf.cacheMiss = (M.perf.cacheMiss || 0) + 1;
-    M.perf.lastBuildMs = (new Date()).getTime() - t0;
+    M.perf.lastBuildMs = Math.round((nowMs() - t0) * 10) / 10;
   }
 
   function activateTab(tabId) {
     var tab = TABS.filter(function (t) { return t.id === tabId; })[0];
-    if (!tab) { tabId = "char"; }
+    // R15b：无效 id（localStorage 被写坏 / 外部误调）必须回落，否则下面读 tab.label 会抛异常
+    if (!tab) { tab = TABS[0]; tabId = tab.id; }
     state.activeTab = tabId;
     var tabsEl = state.tabsEl;
     if (tabsEl) {
@@ -355,25 +365,25 @@ window.mbCE_cot = {
     var fsm = el("span", "mbce-head-fs", "A-");
     fsm.title = "减小字号";
     fsm.style.cursor = "pointer";
-    fsm.style.marginLeft = "8px";
+
     fsm.addEventListener("click", function () { setFont(-1); });
     head.appendChild(fsm);
     var fsadd = el("span", "mbce-head-fs", "A+");
     fsadd.title = "增大字号";
     fsadd.style.cursor = "pointer";
-    fsadd.style.marginLeft = "4px";
+
     fsadd.addEventListener("click", function () { setFont(1); });
     head.appendChild(fsadd);
     var wsm = el("span", "mbce-head-w", "W-");
     wsm.title = "面板变窄";
     wsm.style.cursor = "pointer";
-    wsm.style.marginLeft = "8px";
+
     wsm.addEventListener("click", function () { setWidth(-1); });
     head.appendChild(wsm);
     var wsadd = el("span", "mbce-head-w", "W+");
     wsadd.title = "面板变宽";
     wsadd.style.cursor = "pointer";
-    wsadd.style.marginLeft = "4px";
+
     wsadd.addEventListener("click", function () { setWidth(1); });
     head.appendChild(wsadd);
     var badge = el("span", "mbce-badge", "自检…");
@@ -381,10 +391,16 @@ window.mbCE_cot = {
     panel.appendChild(head);
     // 拖拽把手：标题栏
     head.style.cursor = "move";
+    function isHeadBtn(t) {
+      return !!(t && t.className && /(^|\s)mbce-head-(fs|w)(\s|$)/.test(String(t.className)));
+    }
     head.addEventListener("mousedown", function (e) {
       if (e.button !== 0) { return; }
-      var rect = state.panel.getBoundingClientRect();
-      dragState = { offX: e.clientX - rect.left, offY: e.clientY - rect.top };
+      // R15c：从 A-/A+/W-/W+ 起手时不要启动拖拽，否则「调字号」会顺带把面板拖走
+      if (isHeadBtn(e.target)) { return; }
+      var rect = (typeof state.panel.getBoundingClientRect === "function")
+        ? state.panel.getBoundingClientRect() : { left: 0, top: 0 };
+      dragState = { offX: e.clientX - (rect.left || 0), offY: e.clientY - (rect.top || 0) };
       document.addEventListener("mousemove", onDragMove);
       document.addEventListener("mouseup", onDragUp);
       if (e.preventDefault) { e.preventDefault(); }
@@ -393,8 +409,10 @@ window.mbCE_cot = {
     head.addEventListener("touchstart", function (e) {
       var p = dragPt(e);
       if (!p) { return; }
-      var rect = state.panel.getBoundingClientRect();
-      dragState = { offX: p.clientX - rect.left, offY: p.clientY - rect.top };
+      if (isHeadBtn(e.target)) { return; }
+      var rect = (typeof state.panel.getBoundingClientRect === "function")
+        ? state.panel.getBoundingClientRect() : { left: 0, top: 0 };
+      dragState = { offX: p.clientX - (rect.left || 0), offY: p.clientY - (rect.top || 0) };
       document.addEventListener("touchmove", onDragMove, { passive: false });
       document.addEventListener("touchend", onDragUp);
     }, { passive: true });
@@ -465,7 +483,7 @@ window.mbCE_cot = {
     return { left: Math.min(Math.max(0, L), maxL), top: Math.min(Math.max(0, T), maxT) };
   }
   function fabApplyPos(fab, L, T) {
-    var w = fab.offsetWidth || 48, h = fab.offsetHeight || 48;
+    var w = fab.offsetWidth || 52, h = fab.offsetHeight || 52;
     var c = clampToView(L, T, w, h);
     fab.style.left = c.left + "px";
     fab.style.top = c.top + "px";
@@ -479,20 +497,38 @@ window.mbCE_cot = {
     fab.id = fabId;
     fab.textContent = "CE";
     fab.title = "MapleBirch CE · CoT v" + M.version + "（点按开合面板，按住拖动可换位置）";
-    // 位置恢复（R15）：越界则丢弃
+    // 位置恢复（R15/R15b）：按视口 clamp——换屏、旋屏、写坏的值都不该让球跑出屏幕
     try {
       var sp = localStorage.getItem(uiFabKey);
       if (sp) {
         var fp = JSON.parse(sp);
         var L = parseFloat(fp && fp.left), T = parseFloat(fp && fp.top);
         if (!isNaN(L) && !isNaN(T)) {
-          var ok = (window.innerWidth ? L <= window.innerWidth - 24 : true) &&
-            (window.innerHeight ? T <= window.innerHeight - 24 : true);
-          if (ok) { fab.style.left = L + "px"; fab.style.top = T + "px"; fab.style.right = "auto"; fab.style.bottom = "auto"; }
-          else { try { localStorage.removeItem(uiFabKey); } catch (e1) {} }
+          var c0 = clampToView(L, T, 52, 52);
+          fab.style.left = c0.left + "px";
+          fab.style.top = c0.top + "px";
+          fab.style.right = "auto";
+          fab.style.bottom = "auto";
+          if (c0.left !== L || c0.top !== T) {
+            try { localStorage.setItem(uiFabKey, JSON.stringify({ left: c0.left + "px", top: c0.top + "px" })); } catch (e2) {}
+          }
         }
       }
     } catch (e) {}
+    // R15b：全局监听按需注册。常驻的 { passive:false } touchmove 会让浏览器无法把整页滚动
+    // 移出主线程，导致游戏页面滚动变卡——这是「整体卡顿」的一条隐蔽来源。
+    function bindFabDrag() {
+      document.addEventListener("mousemove", onFabMove);
+      document.addEventListener("mouseup", onFabUp);
+      document.addEventListener("touchmove", onFabMove, { passive: false });
+      document.addEventListener("touchend", onFabUp);
+    }
+    function unbindFabDrag() {
+      document.removeEventListener("mousemove", onFabMove);
+      document.removeEventListener("mouseup", onFabUp);
+      document.removeEventListener("touchmove", onFabMove);
+      document.removeEventListener("touchend", onFabUp);
+    }
     function onFabDown(e) {
       var p = dragPt(e);
       if (!p || p.clientX === undefined) { return; }
@@ -500,6 +536,8 @@ window.mbCE_cot = {
         ? fab.getBoundingClientRect() : { left: 0, top: 0 };
       fabDrag = { x: p.clientX, y: p.clientY, left: r.left || 0, top: r.top || 0, moved: false };
       // 注意：这里不能 preventDefault，否则 touch 之后浏览器不再派发 click，点按开合会失效
+      unbindFabDrag();
+      bindFabDrag();
     }
     function onFabMove(e) {
       if (!fabDrag) { return; }
@@ -513,12 +551,16 @@ window.mbCE_cot = {
       if (e.cancelable && typeof e.preventDefault === "function") { try { e.preventDefault(); } catch (e1) {} }
     }
     function onFabUp() {
+      unbindFabDrag();
       if (!fabDrag) { return; }
       var moved = fabDrag.moved;
       fabDrag = null;
       if (moved) {
         try { localStorage.setItem(uiFabKey, JSON.stringify({ left: fab.style.left, top: fab.style.top })); } catch (e) {}
         if (state.status) { state.status.textContent = "悬浮球位置已保存：" + fab.style.left + ", " + fab.style.top; }
+        // 触摸拖动时 touchmove 被 preventDefault，浏览器可能不派发 click——定时兜底复位，
+        // 否则「抑制标记」会一直留到下一次点按，把那次点按吞掉。
+        setTimeout(function () { fabMoved = false; }, 400);
       }
     }
     fab.addEventListener("mousedown", onFabDown);
@@ -527,10 +569,6 @@ window.mbCE_cot = {
       if (fabMoved) { fabMoved = false; return; }
       toggle();
     });
-    document.addEventListener("mousemove", onFabMove);
-    document.addEventListener("mouseup", onFabUp);
-    document.addEventListener("touchmove", onFabMove, { passive: false });
-    document.addEventListener("touchend", onFabUp);
     document.body.appendChild(fab);
     state.fab = fab;
   }
@@ -543,7 +581,12 @@ window.mbCE_cot = {
       // R15：每次打开面板刷新数据，丢弃所有页签 DOM 缓存（避免显示陈旧值）
       invalidate();
       renderContent(state.activeTab || "char");
-    } else { state.panel.classList.remove("open"); }
+    } else {
+      state.panel.classList.remove("open");
+      // R15c：关闭时释放页签 DOM 缓存与节点引用——手机端不该让数百个节点挂在 display:none 子树里
+      invalidate();
+      clearBox(state.content);
+    }
     try { localStorage.setItem(uiLsKey, open ? "on" : "off"); } catch (e) {}
     updateBadge();
     return open;
@@ -893,7 +936,7 @@ window.mbCE_cot = {
   function rowEl(label, value, onSave, key, onSaved) {
     var wrap = el("div");
     wrap.className = "mbce-row";
-    if (key !== undefined) { wrap.setAttribute("data-key", String(key)); }
+    if (key !== undefined) { wrap.setAttribute("data-key", String(key)); wrap._mbceKey = String(key).toLowerCase(); }
     wrap.appendChild(el("span", "mbce-row-label", label));
     var inp = el("input", "mbce-in");
     inp.type = "number";
@@ -937,9 +980,11 @@ window.mbCE_cot = {
     sInp.type = "text";
     sInp.addEventListener("input", function () {
       var q = sInp.value.trim().toLowerCase();
+      // R15c：键名在渲染时就缓存（避免每次按键都做 N 次 getAttribute），display 只写变化的
       rows.forEach(function (r) {
-        var k = (r.getAttribute("data-key") || "").toLowerCase();
-        r.style.display = (!q || k.indexOf(q) >= 0) ? "" : "none";
+        var k = r._mbceKey !== undefined ? r._mbceKey : (r.getAttribute("data-key") || "").toLowerCase();
+        var want = (!q || k.indexOf(q) >= 0) ? "" : "none";
+        if (r.style.display !== want) { r.style.display = want; }
       });
     });
     sRow.appendChild(sInp);
@@ -1256,6 +1301,7 @@ window.mbCE_cot = {
         var c = el("button", "mbce-chip", label);
         c.title = zh ? (zh + " / " + k) : k;
         c.setAttribute("data-inc", k);
+        c._mbceInc = k; // R15c：刷新 118 个 chip 时不再逐个 getAttribute
         c.addEventListener("click", function () {
           var arr = readInc();
           var i = arr.indexOf(k);
@@ -1269,8 +1315,9 @@ window.mbCE_cot = {
       var arr = readInc();
       [commonHost, allHost].forEach(function (h) {
         Array.prototype.forEach.call(h.children, function (c) {
-          var on = arr.indexOf(c.getAttribute("data-inc")) >= 0;
-          c.className = "mbce-chip" + (on ? " on" : "");
+          var key = c._mbceInc !== undefined ? c._mbceInc : c.getAttribute("data-inc");
+          var want = "mbce-chip" + (arr.indexOf(key) >= 0 ? " on" : "");
+          if (c.className !== want) { c.className = want; }
         });
       });
     }
@@ -1692,17 +1739,24 @@ window.mbCE_cot = {
     function applyPersonFilter() {
       var q = nInp.value.trim().toLowerCase();
       var shown = 0;
+      // R15c：名字/分类在渲染时缓存到元素上（避免每次按键 N*2 次 getAttribute），display 只写变化的
       dets.forEach(function (d) {
-        var nm = (d.getAttribute("data-name") || "").toLowerCase();
-        var cats = (d.getAttribute("data-cats") || "");
+        var nm = d._mbceName !== undefined ? d._mbceName : (d.getAttribute("data-name") || "").toLowerCase();
+        var cats = d._mbceCats !== undefined ? d._mbceCats : (d.getAttribute("data-cats") || "");
         var okQ = !q || nm.indexOf(q) >= 0;
         var okC = !curCat || (" " + cats + " ").indexOf(" " + curCat + " ") >= 0;
-        d.style.display = (okQ && okC) ? "" : "none";
-        if (okQ && okC) { shown++; }
+        var hit = okQ && okC;
+        var want = hit ? "" : "none";
+        if (d.style.display !== want) { d.style.display = want; }
+        if (hit) { shown++; }
       });
-      var active = (q || curCat);
-      emptyHint.style.display = (!shown && active) ? "" : "none";
-      emptyHint.textContent = (!shown && active) ? ("（当前筛选无匹配人物，共 " + dets.length + " 人）") : "";
+      var active = !!(q || curCat);
+      var hintWant = (!shown && active) ? "" : "none";
+      if (emptyHint.style.display !== hintWant) { emptyHint.style.display = hintWant; }
+      if (!shown && active) {
+        var txt = "（当前筛选无匹配人物，共 " + dets.length + " 人）";
+        if (emptyHint.textContent !== txt) { emptyHint.textContent = txt; }
+      }
     }
     var allChip = el("button", "mbce-cat on", "全部（" + list.length + "）");
     allChip.addEventListener("click", function () { curCat = ""; refreshCatChips(); applyPersonFilter(); });
@@ -1712,6 +1766,7 @@ window.mbCE_cot = {
       var cnt = list.filter(function (p) { return catMap[p.name] && catMap[p.name][id]; }).length;
       var c = el("button", "mbce-cat", ((M.catZh && M.catZh[id]) || id) + "（" + cnt + "）");
       c.setAttribute("data-cat", id);
+      c._mbceCat = id;
       c.addEventListener("click", function () {
         curCat = (curCat === id) ? "" : id;
         refreshCatChips();
@@ -1722,8 +1777,9 @@ window.mbCE_cot = {
     });
     function refreshCatChips() {
       catChips.forEach(function (c) {
-        var id = c.getAttribute("data-cat") || "";
-        c.className = "mbce-cat" + ((id === "" && curCat === "") || id === curCat ? " on" : "");
+        var id = c._mbceCat !== undefined ? c._mbceCat : (c.getAttribute("data-cat") || "");
+        var want = "mbce-cat" + ((id === "" && curCat === "") || id === curCat ? " on" : "");
+        if (c.className !== want) { c.className = want; }
       });
     }
     box.appendChild(catRow);
@@ -1739,8 +1795,10 @@ window.mbCE_cot = {
     list.forEach(function (p) {
       // 分组优化：每 NPC 一个折叠块（默认展开）
       var det = el("details");
-      det.open = (closedRel.indexOf(p.name) >= 0) ? "" : "open";
+      // R15c：用布尔而不是字符串——真实 DOM 上 details.open 是布尔属性
+      det.open = (closedRel.indexOf(p.name) < 0);
       det.setAttribute("data-name", p.name);
+      det._mbceName = String(p.name).toLowerCase();
       dets.push(det);
       det.addEventListener("toggle", function () {
         var arr = readClosedRel();
@@ -1757,6 +1815,7 @@ window.mbCE_cot = {
       var icons = CAT_IDS.filter(function (id) { return pCats[id]; }).map(function (id) { return CAT_ICON[id]; }).join("");
       if (icons) { head += "  " + icons; }
       det.setAttribute("data-cats", CAT_IDS.filter(function (id) { return pCats[id]; }).join(" "));
+      det._mbceCats = CAT_IDS.filter(function (id) { return pCats[id]; }).join(" ");
       det.appendChild(el("summary", null, head));
       var g = el("div", "mbce-group");
       det.appendChild(g);
@@ -1799,7 +1858,9 @@ window.mbCE_cot = {
       var curRel = (info && info.relationship !== undefined) ? String(info.relationship) : "";
       function refreshRelChips() {
         Array.prototype.forEach.call(relChips.children, function (c) {
-          c.className = "mbce-chip" + (c.getAttribute("data-rel") === curRel ? " on" : "");
+          var tag = c._mbceRel !== undefined ? c._mbceRel : c.getAttribute("data-rel");
+          var want = "mbce-chip" + (tag === curRel ? " on" : "");
+          if (c.className !== want) { c.className = want; }
         });
       }
       var relChips = el("div", "mbce-row");
@@ -1807,6 +1868,7 @@ window.mbCE_cot = {
         var c = el("button", "mbce-chip" + (curRel === tag ? " on" : ""), tag);
         c.title = REL_LABELS[tag] || tag;
         c.setAttribute("data-rel", tag);
+        c._mbceRel = tag;
         c.addEventListener("click", function () {
           var target = (curRel === tag) ? "" : tag;
           var r = writeRelationship(p.name, target);
@@ -2084,8 +2146,20 @@ window.mbCE_cot = {
     cur.appendChild(el("b", null, "当前地点"));
     var loc = a.readVar("location");
     var prev = a.readVar("previouslocation");
-    cur.appendChild(el("p", "mbce-plain", "$location = " + (loc === undefined ? "（未初始化）" : locLabel(String(loc)))));
-    if (prev !== undefined) { cur.appendChild(el("p", "mbce-plain", "$previouslocation = " + locLabel(String(prev)))); }
+    var locP = el("p", "mbce-plain", "$location = " + (loc === undefined ? "（未初始化）" : locLabel(String(loc))));
+    cur.appendChild(locP);
+    var prevP = null;
+    if (prev !== undefined) {
+      prevP = el("p", "mbce-plain", "$previouslocation = " + locLabel(String(prev)));
+      cur.appendChild(prevP);
+    }
+    // R15c：跳转后按 locLabel 刷新（此前直接写专名，中文名会丢）；上一地点也同步
+    function refreshLocLines() {
+      var l = a.readVar("location");
+      var pv = a.readVar("previouslocation");
+      locP.textContent = "$location = " + (l === undefined ? "（未初始化）" : locLabel(String(l)));
+      if (prevP && pv !== undefined) { prevP.textContent = "$previouslocation = " + locLabel(String(pv)); }
+    }
     box.appendChild(cur);
 
     var jump = el("div", "mbce-group");
@@ -2098,11 +2172,7 @@ window.mbCE_cot = {
       btn.addEventListener("click", function () {
         var r = setLocation(name);
         if (!r.ok) { statusMsg(r.reason); }
-        else {
-          loc = a.readVar("location");
-          var p = cur.getElementsByTagName("p")[0];
-          if (p) { p.textContent = "$location = " + String(loc); }
-        }
+        else { refreshLocLines(); }
       });
       row.appendChild(btn);
       jump.appendChild(row);
@@ -2117,12 +2187,7 @@ window.mbCE_cot = {
     btn.addEventListener("click", function () {
       var r = setLocation(inp.value);
       if (!r.ok) { statusMsg(r.reason); }
-      else {
-        inp.value = "";
-        loc = a.readVar("location");
-        var p = cur.getElementsByTagName("p")[0];
-        if (p) { p.textContent = "$location = " + String(loc); }
-      }
+      else { inp.value = ""; refreshLocLines(); }
     });
     freeRow.appendChild(btn);
     jump.appendChild(freeRow);

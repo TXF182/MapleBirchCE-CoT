@@ -18,19 +18,23 @@ const ORDER = ["01-core.js", "02-shell.js", "03-cot-adapter.js", "04-p2-data.js"
 
 function makeEl() {
   const children = [];
+  const h = {}; // R15b：记录监听器，供「按需注册/清理」类测试直接调用
   const cls = { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); } };
   const attrs = {};
   return {
     id: "", className: "", textContent: "", innerHTML: "", title: "", style: {}, children,
     classList: cls,
-    addEventListener() {}, appendChild(n) { children.push(n); return n; },
+    _h: h,
+    addEventListener(type, fn) { (h[type] = h[type] || []).push(fn); },
+    removeEventListener(type, fn) { if (h[type]) { h[type] = h[type].filter(f => f !== fn); } },
+    appendChild(n) { children.push(n); return n; },
     setAttribute(k, v) { attrs[k] = String(v); },
     getAttribute(k) { return Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null; },
     remove() {},
   };
 }
 
-function makeEnv() {
+function makeEnv(opts) {
   const variables = {};
   const bodyChildren = [];
   const body = { children: bodyChildren, appendChild(n) { bodyChildren.push(n); return n; }, insertBefore() {}, querySelector() { return null; } };
@@ -39,7 +43,10 @@ function makeEnv() {
     head: makeEl(), body, documentElement: makeEl(),
     createElement() { return makeEl(); },
     getElementById() { return null; },
-    addEventListener() {}, querySelector() { return null; },
+    querySelector() { return null; },
+    _listeners: [],
+    addEventListener(type, fn, opt) { this._listeners.push({ type: String(type), fn, opt: opt || null }); },
+    removeEventListener(type, fn) { this._listeners = this._listeners.filter(l => !(l.type === String(type) && l.fn === fn)); },
   };
   const ls = (function () {
     const m = {};
@@ -59,6 +66,7 @@ function makeEnv() {
     Date, JSON, Math, Object, Array, String, Number, Boolean, RegExp, Error, Promise,
   };
   sandbox.window = sandbox;
+  if (opts) { for (const k in opts) { sandbox[k] = opts[k]; } }
   return { sandbox, variables, bodyChildren };
 }
 
@@ -910,6 +918,11 @@ function walkText(n, out) {
   return out;
 }
 
+function walkAll(n, fn) {
+  fn(n);
+  (n.children || []).forEach(c => walkAll(c, fn));
+}
+
 test("R13: 技能阶段显示（等级 = floor(值/100)，进度 = 值%100）", () => {
   const env = makeEnv(); loadAll(env);
   env.sandbox.State.variables.pcskills = { Charisma: 100, Hand: 121 };
@@ -1118,6 +1131,196 @@ test("R15: 悬浮球坐标 clamp（越界回收到视口内）", () => {
   assert.strictEqual(c2.top, 0, "上越界归 0");
   const c3 = S.clampFab(100, 200, 48, 48);
   assert.strictEqual(c3.left, 100, "视口内保持原值");
+});
+test("R15b: 无效页签 id 不抛异常并回落到角色页", () => {
+  const env = makeEnv(); loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  S.init();
+  let threw = null;
+  try { S.activateTab("nope_not_a_tab"); } catch (e) { threw = e; }
+  assert.strictEqual(threw, null, "无效 id 不抛异常");
+  assert.strictEqual(S.activeTab(), "char", "回落到角色页");
+  assert.ok(walkText(S.content(), []).length > 0, "回落页有内容");
+});
+
+test("R15b: 连点同一页签不重建（缓存命中）", () => {
+  const env = makeEnv(); loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  S.init();
+  S.activateTab("stats");
+  const miss0 = S.perf().cacheMiss;
+  const hit0 = S.perf().cacheHit;
+  S.activateTab("stats");
+  S.activateTab("stats");
+  assert.strictEqual(S.perf().cacheMiss, miss0, "同页重复点击不触发重建");
+  assert.ok(S.perf().cacheHit > hit0, "同页重复点击命中缓存");
+});
+
+test("R15b: 悬浮球拖动不常驻全局非 passive touchmove", () => {
+  const env = makeEnv();
+  env.sandbox.document._listeners = [];
+  loadAll(env); // ready(init) 在加载时同步执行，监听器要在这之后才看得全
+  env.sandbox.innerWidth = 400; env.sandbox.innerHeight = 800;
+  const doc = env.sandbox.document;
+  const bad0 = doc._listeners.filter(l => l.type === "touchmove" && l.opt && l.opt.passive === false);
+  assert.strictEqual(bad0.length, 0, "初始化后 document 上没有非 passive touchmove（否则拖慢整页滚动）");
+  const fab = env.bodyChildren.filter(n => n.id === "mbCE_cot_fab")[0];
+  assert.ok(fab && fab._h && fab._h.mousedown, "悬浮球已挂 mousedown");
+  fab._h.mousedown[0]({ clientX: 100, clientY: 100, button: 0 });
+  const bad1 = doc._listeners.filter(l => l.type === "touchmove" && l.opt && l.opt.passive === false);
+  assert.strictEqual(bad1.length, 1, "按下后才注册非 passive touchmove");
+  const up = doc._listeners.filter(l => l.type === "mouseup")[0];
+  assert.ok(up, "按下时注册 mouseup");
+  up.fn({});
+  assert.strictEqual(doc._listeners.filter(l => l.type === "touchmove").length, 0, "松手后移除 touchmove");
+  assert.strictEqual(doc._listeners.filter(l => l.type === "mousemove").length, 0, "松手后移除 mousemove");
+});
+
+test("R15b: 悬浮球位置恢复时按视口 clamp", () => {
+  const env = makeEnv();
+  // 视口与存档必须在 loadAll 之前就位：ready(init) 在加载时同步执行
+  env.sandbox.innerWidth = 400; env.sandbox.innerHeight = 800;
+  env.sandbox.localStorage.setItem("mbCE_cot_ui_fab", JSON.stringify({ left: "-50px", top: "950px" }));
+  loadAll(env);
+  const fab = env.bodyChildren.filter(n => n.id == "mbCE_cot_fab")[0];
+  assert.strictEqual(fab.style.left, "0px", "负坐标收到 0");
+  assert.strictEqual(fab.style.top, "748px", "底部越界收到 800-52");
+  assert.strictEqual(env.sandbox.localStorage.getItem("mbCE_cot_ui_fab"), JSON.stringify({ left: "0px", top: "748px" }), "clamp 后的值回写存档");
+});
+
+test("R15b: 悬浮球拖动后不吞掉紧邻的下一次点按", () => {
+  const env = makeEnv(); loadAll(env);
+  env.sandbox.innerWidth = 400; env.sandbox.innerHeight = 800;
+  const doc = env.sandbox.document;
+  env.sandbox.mbCE_cot.shell.init();
+  const fab = env.bodyChildren.filter(n => n.id == "mbCE_cot_fab")[0];
+  const panel = env.bodyChildren.filter(n => n.id == "mbCE_cot_panel")[0];
+  const isOpen = () => panel.classList.contains("open");
+  const click = fab._h.click[0];
+  assert.strictEqual(isOpen(), false, "初始关闭");
+  click({});
+  assert.strictEqual(isOpen(), true, "点按打开面板");
+  // 模拟拖动：按下 → 移动超过阈值 → 松手
+  fab._h.mousedown[0]({ clientX: 100, clientY: 100, button: 0 });
+  const mv = doc._listeners.filter(l => l.type === "mousemove")[0];
+  mv.fn({ clientX: 160, clientY: 150 });
+  doc._listeners.filter(l => l.type === "mouseup")[0].fn({});
+  assert.strictEqual(fab.style.left, "60px", "拖动生效");
+  click({});
+  assert.strictEqual(isOpen(), true, "拖动后紧随的 click 被抑制（不误关）");
+  // 关键：抑制只消费一次，下一次真正点按必须恢复开合
+  click({});
+  assert.strictEqual(isOpen(), false, "下一次点按恢复正常关闭");
+});
+test("R15c: 数值页过滤缓存键名且只写变化的 display", () => {
+  const env = makeEnv(); loadAll(env);
+  const box = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("stats", box);
+  let inp = null;
+  walkAll(box, n => { if (!inp && n._h && n._h.input && n._h.input.length) { inp = n; } });
+  assert.ok(inp, "存在过滤输入框");
+  const rows = [];
+  walkAll(box, n => { if (n.className === "mbce-row" && n.getAttribute("data-key") !== null) { rows.push(n); } });
+  assert.ok(rows.length > 5, "有多行可过滤的数值行");
+  assert.ok(rows.every(r => typeof r._mbceKey === "string"), "每行渲染时就缓存了键名（避免每次按键 getAttribute）");
+  inp.value = "money";
+  inp._h.input[0]({});
+  const hit = rows.filter(r => r.style.display !== "none");
+  assert.ok(hit.length >= 1, "有命中行");
+  assert.ok(hit.every(r => r._mbceKey.indexOf("money") >= 0), "只显示键名命中 money 的行");
+  const hidden = rows.filter(r => r.style.display === "none");
+  assert.ok(hidden.length > 0, "其余行被隐藏");
+  inp.value = "";
+  inp._h.input[0]({});
+  assert.ok(rows.every(r => r.style.display === ""), "清空过滤后全部恢复");
+});
+
+test("R15c: 关系页 NPC 搜索过滤（名字/分类缓存到元素）", () => {
+  const env = makeEnv(); loadAll(env);
+  env.variables.people = {
+    "Clifford Rentfrow": { attitude: { friendship: 10 } },
+    "Stephen Appicci": { attitude: {} },
+  };
+  const box = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("rel", box);
+  const dets = [];
+  walkAll(box, n => { if (n.getAttribute && n.getAttribute("data-name") !== null && n.getAttribute("data-name") !== undefined) { dets.push(n); } });
+  assert.ok(dets.length >= 2, "至少两张 NPC 卡");
+  assert.ok(dets.every(d => typeof d._mbceName === "string" && typeof d._mbceCats === "string"), "名字与分类已缓存到元素");
+  let inp = null;
+  walkAll(box, n => { if (!inp && n._h && n._h.input && n._h.input.length) { inp = n; } });
+  assert.ok(inp, "存在 NPC 过滤框");
+  inp.value = "cliff";
+  inp._h.input[0]({});
+  const visible = dets.filter(d => d.style.display !== "none");
+  assert.strictEqual(visible.length, 1, "只有 1 张卡命中");
+  assert.strictEqual(visible[0]._mbceName, "clifford rentfrow", "命中的是 Clifford");
+  inp.value = "zzz-无此人";
+  inp._h.input[0]({});
+  assert.ok(dets.every(d => d.style.display === "none"), "无匹配时全部隐藏");
+  let hint = null;
+  walkAll(box, n => { if (!hint && String(n.textContent || "").indexOf("无匹配人物") >= 0) { hint = n; } });
+  assert.ok(hint, "无匹配时给出提示");
+  assert.strictEqual(hint.style.display, "", "提示可见");
+  inp.value = "";
+  inp._h.input[0]({});
+  assert.ok(dets.every(d => d.style.display === ""), "清空后全部恢复");
+  assert.strictEqual(hint.style.display, "none", "提示收起");
+});
+test("R15c: 地点跳转后状态行保留中文名（上一地点同步刷新）", () => {
+  const env = makeEnv(); loadAll(env);
+  env.variables.location = "YourDorm";
+  env.variables.previouslocation = "Campus";
+  const box = env.sandbox.document.createElement("div");
+  env.sandbox.mbCE_cot.data.render("place", box);
+  let locP = null;
+  let prevP = null;
+  walkAll(box, n => {
+    const t = String(n.textContent || "");
+    if (t.indexOf("$location = ") === 0) { locP = n; }
+    if (t.indexOf("$previouslocation = ") === 0) { prevP = n; }
+  });
+  assert.ok(locP, "存在 $location 状态行");
+  assert.ok(locP.textContent.indexOf("你的宿舍（YourDorm）") >= 0, "初始显示中文名（专名）");
+  const btns = [];
+  walkAll(box, n => { if (n._h && n._h.click && n._h.click.length && String(n.textContent || "") === "前往") { btns.push(n); } });
+  assert.ok(btns.length >= 13, "地点跳转按钮已渲染（" + btns.length + " 个）");
+  btns[0]._h.click[0]({});
+  assert.ok(String(locP.textContent).indexOf("（") >= 0, "跳转后仍为「中文名（专名）」而不是裸专名");
+  assert.ok(String(prevP.textContent).indexOf("（") >= 0, "上一地点同步刷新且带中文名");
+  // CE 只写 $location，不伪造 $previouslocation（那是游戏引擎的移动语义），故上一地点仍是 Campus
+  assert.ok(String(prevP.textContent).indexOf("校园（Campus）") >= 0, "上一地点保持游戏原值 Campus");
+});
+test("R15c: 关闭面板释放页签 DOM（不挂在隐藏子树里）", () => {
+  const env = makeEnv(); loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  const panel = env.bodyChildren.filter(n => n.id == "mbCE_cot_panel")[0];
+  assert.ok(panel, "面板已构建");
+  S.open(true);
+  assert.strictEqual(panel.classList.contains("open"), true, "已打开");
+  assert.ok(S.content().children.length > 0, "打开后有内容节点");
+  S.open(false);
+  assert.strictEqual(panel.classList.contains("open"), false, "已关闭");
+  assert.strictEqual(S.content().children.length, 0, "关闭后内容节点清空（释放内存）");
+  const miss = S.perf().cacheMiss;
+  S.open(true);
+  assert.ok(S.perf().cacheMiss > miss, "重开面板会重建当前页（数据新鲜）");
+});
+test("R15c: 从 A-/W+ 按钮起手拖动标题栏不误启动面板拖拽", () => {
+  const env = makeEnv(); loadAll(env);
+  const S = env.sandbox.mbCE_cot.shell;
+  S.open(true);
+  const doc = env.sandbox.document;
+  const head = env.bodyChildren.filter(n => n.id == "mbCE_cot_panel")[0].children[0];
+  assert.ok(head, "存在标题栏");
+  assert.ok(head._h.mousedown && head._h.mousedown.length, "标题栏挂 mousedown");
+  const fsBtn = { className: "mbce-head-fs", textContent: "A-", style: {} };
+  head._h.mousedown[0]({ button: 0, clientX: 100, clientY: 100, target: fsBtn });
+  assert.strictEqual(doc._listeners.filter(l => l.type === "mousemove").length, 0, "按钮起手不启动拖拽");
+  // 空白标题栏起手应正常启动拖拽
+  head._h.mousedown[0]({ button: 0, clientX: 100, clientY: 100, target: head });
+  assert.strictEqual(doc._listeners.filter(l => l.type === "mousemove").length, 1, "标题栏空白处起手可拖拽");
+  doc._listeners.filter(l => l.type === "mouseup")[0].fn({});
 });
 let failed = 0;
 for (const [name, fn] of tests) {

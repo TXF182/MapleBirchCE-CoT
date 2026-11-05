@@ -104,8 +104,20 @@
     cur.appendChild(el("b", null, "当前地点"));
     var loc = a.readVar("location");
     var prev = a.readVar("previouslocation");
-    cur.appendChild(el("p", "mbce-plain", "$location = " + (loc === undefined ? "（未初始化）" : locLabel(String(loc)))));
-    if (prev !== undefined) { cur.appendChild(el("p", "mbce-plain", "$previouslocation = " + locLabel(String(prev)))); }
+    var locP = el("p", "mbce-plain", "$location = " + (loc === undefined ? "（未初始化）" : locLabel(String(loc))));
+    cur.appendChild(locP);
+    var prevP = null;
+    if (prev !== undefined) {
+      prevP = el("p", "mbce-plain", "$previouslocation = " + locLabel(String(prev)));
+      cur.appendChild(prevP);
+    }
+    // R15c：跳转后按 locLabel 刷新（此前直接写专名，中文名会丢）；上一地点也同步
+    function refreshLocLines() {
+      var l = a.readVar("location");
+      var pv = a.readVar("previouslocation");
+      locP.textContent = "$location = " + (l === undefined ? "（未初始化）" : locLabel(String(l)));
+      if (prevP && pv !== undefined) { prevP.textContent = "$previouslocation = " + locLabel(String(pv)); }
+    }
     box.appendChild(cur);
 
     var jump = el("div", "mbce-group");
@@ -118,11 +130,7 @@
       btn.addEventListener("click", function () {
         var r = setLocation(name);
         if (!r.ok) { statusMsg(r.reason); }
-        else {
-          loc = a.readVar("location");
-          var p = cur.getElementsByTagName("p")[0];
-          if (p) { p.textContent = "$location = " + String(loc); }
-        }
+        else { refreshLocLines(); }
       });
       row.appendChild(btn);
       jump.appendChild(row);
@@ -137,12 +145,7 @@
     btn.addEventListener("click", function () {
       var r = setLocation(inp.value);
       if (!r.ok) { statusMsg(r.reason); }
-      else {
-        inp.value = "";
-        loc = a.readVar("location");
-        var p = cur.getElementsByTagName("p")[0];
-        if (p) { p.textContent = "$location = " + String(loc); }
-      }
+      else { inp.value = ""; refreshLocLines(); }
     });
     freeRow.appendChild(btn);
     jump.appendChild(freeRow);

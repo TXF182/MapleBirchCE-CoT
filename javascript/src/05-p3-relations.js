@@ -285,17 +285,24 @@
     function applyPersonFilter() {
       var q = nInp.value.trim().toLowerCase();
       var shown = 0;
+      // R15c：名字/分类在渲染时缓存到元素上（避免每次按键 N*2 次 getAttribute），display 只写变化的
       dets.forEach(function (d) {
-        var nm = (d.getAttribute("data-name") || "").toLowerCase();
-        var cats = (d.getAttribute("data-cats") || "");
+        var nm = d._mbceName !== undefined ? d._mbceName : (d.getAttribute("data-name") || "").toLowerCase();
+        var cats = d._mbceCats !== undefined ? d._mbceCats : (d.getAttribute("data-cats") || "");
         var okQ = !q || nm.indexOf(q) >= 0;
         var okC = !curCat || (" " + cats + " ").indexOf(" " + curCat + " ") >= 0;
-        d.style.display = (okQ && okC) ? "" : "none";
-        if (okQ && okC) { shown++; }
+        var hit = okQ && okC;
+        var want = hit ? "" : "none";
+        if (d.style.display !== want) { d.style.display = want; }
+        if (hit) { shown++; }
       });
-      var active = (q || curCat);
-      emptyHint.style.display = (!shown && active) ? "" : "none";
-      emptyHint.textContent = (!shown && active) ? ("（当前筛选无匹配人物，共 " + dets.length + " 人）") : "";
+      var active = !!(q || curCat);
+      var hintWant = (!shown && active) ? "" : "none";
+      if (emptyHint.style.display !== hintWant) { emptyHint.style.display = hintWant; }
+      if (!shown && active) {
+        var txt = "（当前筛选无匹配人物，共 " + dets.length + " 人）";
+        if (emptyHint.textContent !== txt) { emptyHint.textContent = txt; }
+      }
     }
     var allChip = el("button", "mbce-cat on", "全部（" + list.length + "）");
     allChip.addEventListener("click", function () { curCat = ""; refreshCatChips(); applyPersonFilter(); });
@@ -305,6 +312,7 @@
       var cnt = list.filter(function (p) { return catMap[p.name] && catMap[p.name][id]; }).length;
       var c = el("button", "mbce-cat", ((M.catZh && M.catZh[id]) || id) + "（" + cnt + "）");
       c.setAttribute("data-cat", id);
+      c._mbceCat = id;
       c.addEventListener("click", function () {
         curCat = (curCat === id) ? "" : id;
         refreshCatChips();
@@ -315,8 +323,9 @@
     });
     function refreshCatChips() {
       catChips.forEach(function (c) {
-        var id = c.getAttribute("data-cat") || "";
-        c.className = "mbce-cat" + ((id === "" && curCat === "") || id === curCat ? " on" : "");
+        var id = c._mbceCat !== undefined ? c._mbceCat : (c.getAttribute("data-cat") || "");
+        var want = "mbce-cat" + ((id === "" && curCat === "") || id === curCat ? " on" : "");
+        if (c.className !== want) { c.className = want; }
       });
     }
     box.appendChild(catRow);
@@ -332,8 +341,10 @@
     list.forEach(function (p) {
       // 分组优化：每 NPC 一个折叠块（默认展开）
       var det = el("details");
-      det.open = (closedRel.indexOf(p.name) >= 0) ? "" : "open";
+      // R15c：用布尔而不是字符串——真实 DOM 上 details.open 是布尔属性
+      det.open = (closedRel.indexOf(p.name) < 0);
       det.setAttribute("data-name", p.name);
+      det._mbceName = String(p.name).toLowerCase();
       dets.push(det);
       det.addEventListener("toggle", function () {
         var arr = readClosedRel();
@@ -350,6 +361,7 @@
       var icons = CAT_IDS.filter(function (id) { return pCats[id]; }).map(function (id) { return CAT_ICON[id]; }).join("");
       if (icons) { head += "  " + icons; }
       det.setAttribute("data-cats", CAT_IDS.filter(function (id) { return pCats[id]; }).join(" "));
+      det._mbceCats = CAT_IDS.filter(function (id) { return pCats[id]; }).join(" ");
       det.appendChild(el("summary", null, head));
       var g = el("div", "mbce-group");
       det.appendChild(g);
@@ -392,7 +404,9 @@
       var curRel = (info && info.relationship !== undefined) ? String(info.relationship) : "";
       function refreshRelChips() {
         Array.prototype.forEach.call(relChips.children, function (c) {
-          c.className = "mbce-chip" + (c.getAttribute("data-rel") === curRel ? " on" : "");
+          var tag = c._mbceRel !== undefined ? c._mbceRel : c.getAttribute("data-rel");
+          var want = "mbce-chip" + (tag === curRel ? " on" : "");
+          if (c.className !== want) { c.className = want; }
         });
       }
       var relChips = el("div", "mbce-row");
@@ -400,6 +414,7 @@
         var c = el("button", "mbce-chip" + (curRel === tag ? " on" : ""), tag);
         c.title = REL_LABELS[tag] || tag;
         c.setAttribute("data-rel", tag);
+        c._mbceRel = tag;
         c.addEventListener("click", function () {
           var target = (curRel === tag) ? "" : tag;
           var r = writeRelationship(p.name, target);

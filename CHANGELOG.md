@@ -43,6 +43,28 @@ R15 用户反馈四条（切页卡顿 / 地点未翻译 / 倾向不全 / 悬浮�
 
 单测 71 → **76 项**；产物 SHA256 `733331533D55BE5B27673E0C2714964F05ABB32AABDB107EC318A9F3B68F43EE`（安装包见 `.selfcheck/r15-perf-i18n-fab.txt`）。
 
+### 追加：R15b/R15c 自我扫描（同日，无审批连续自查）
+
+四条反馈落地后又做了一轮代码审查，共修 13 处（单测 76 → 86）：
+
+| 类别 | 问题 | 修法 |
+|---|---|---|
+| 崩溃 | `activateTab` 收到无效 id 时 `tab` 仍是 undefined，紧接读 `tab.label` 抛 TypeError（存档值被写坏即触发） | 回落时同时把 `tab` 指向 `TABS[0]` |
+| 卡顿 | 连点当前页签命中"同页强制重建"，白重建一次 | `renderContent(tabId, force)` 加 `force`，正常切页不强制 |
+| 卡顿 | FAB 把 `touchmove({passive:false})` **常驻**挂 document，浏览器无法把整页滚动移出主线程（拖慢整个游戏页滚动） | 按下才注册、松手即移除 |
+| 体验 | 触摸拖动后浏览器可能不派发 click，`fabMoved` 一直为 true，吞掉下一次点按 | 拖动结束 400ms 定时兜底复位 |
+| 体验 | FAB 位置恢复只判上界不判负值，且按 24px 余量算（球实际 52px） | 恢复时按视口 clamp 并回写 |
+| 一致性 | 地点跳转后状态行写裸专名（中文名丢失），上一地点不刷新 | 统一走 `locLabel` 的 `refreshLocLines`，用节点引用代替 `getElementsByTagName` |
+| 性能 | 数值页过滤每键 N 次 `getAttribute` + N 次样式写 | 渲染时缓存 `_mbceKey`，display 只写变化的 |
+| 性能 | 关系页 NPC 过滤同上；空结果提示每键重写文本 | 缓存 `_mbceName`/`_mbceCats`，文本变才写 |
+| 性能 | 点一个倾向 chip 要刷新 118 个 chip 的 className | 缓存 `_mbceInc`，className 只写变化的；分类/关系 chip 同改 |
+| 内存 | 关闭面板后数百节点仍挂在 `display:none` 子树 | 关闭时 `invalidate()` + 清空内容节点 |
+| 可用性 | A-/A+/W-/W+ 是无样式 `span`，像普通文字、触摸目标过小 | 补按钮样式（30×26、圆角、`touch-action:manipulation`） |
+| 交互 | 从 A-/A+/W-/W+ 起手拖标题栏会同时改字号/宽度 | 起手目标命中这几个按钮时不启动拖拽 |
+| 计时 | `lastBuildMs` 用 `Date` 毫秒差，常见 0ms 看不出慢页 | 优先 `performance.now()`，保留一位小数 |
+
+单测 **86 项**；产物 SHA256 `36D1F75E07F3A0C40AD9972754B4F686BE9B66624F0D67DF7A5D7D4283ACDE14`。
+
 ## [0.7.1] - 2026-11-05
 
 R14 自我扫描整改（无审批连续自查，按「直到自己找不出问题」执行）：

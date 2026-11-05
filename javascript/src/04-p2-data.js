@@ -114,7 +114,7 @@
   function rowEl(label, value, onSave, key, onSaved) {
     var wrap = el("div");
     wrap.className = "mbce-row";
-    if (key !== undefined) { wrap.setAttribute("data-key", String(key)); }
+    if (key !== undefined) { wrap.setAttribute("data-key", String(key)); wrap._mbceKey = String(key).toLowerCase(); }
     wrap.appendChild(el("span", "mbce-row-label", label));
     var inp = el("input", "mbce-in");
     inp.type = "number";
@@ -158,9 +158,11 @@
     sInp.type = "text";
     sInp.addEventListener("input", function () {
       var q = sInp.value.trim().toLowerCase();
+      // R15c：键名在渲染时就缓存（避免每次按键都做 N 次 getAttribute），display 只写变化的
       rows.forEach(function (r) {
-        var k = (r.getAttribute("data-key") || "").toLowerCase();
-        r.style.display = (!q || k.indexOf(q) >= 0) ? "" : "none";
+        var k = r._mbceKey !== undefined ? r._mbceKey : (r.getAttribute("data-key") || "").toLowerCase();
+        var want = (!q || k.indexOf(q) >= 0) ? "" : "none";
+        if (r.style.display !== want) { r.style.display = want; }
       });
     });
     sRow.appendChild(sInp);
@@ -477,6 +479,7 @@
         var c = el("button", "mbce-chip", label);
         c.title = zh ? (zh + " / " + k) : k;
         c.setAttribute("data-inc", k);
+        c._mbceInc = k; // R15c：刷新 118 个 chip 时不再逐个 getAttribute
         c.addEventListener("click", function () {
           var arr = readInc();
           var i = arr.indexOf(k);
@@ -490,8 +493,9 @@
       var arr = readInc();
       [commonHost, allHost].forEach(function (h) {
         Array.prototype.forEach.call(h.children, function (c) {
-          var on = arr.indexOf(c.getAttribute("data-inc")) >= 0;
-          c.className = "mbce-chip" + (on ? " on" : "");
+          var key = c._mbceInc !== undefined ? c._mbceInc : c.getAttribute("data-inc");
+          var want = "mbce-chip" + (arr.indexOf(key) >= 0 ? " on" : "");
+          if (c.className !== want) { c.className = want; }
         });
       });
     }

@@ -82,3 +82,12 @@
 - **FAB 拖拽**：`touchstart` **不能** `preventDefault`（否则浏览器不再派发 click，点按开合失效）；只在 `touchmove` 里 prevent。FAB 需 `touch-action:none`。拖动阈值 6px + `fabMoved` 抑制 click。
 - **常/全两套表**：`M.inclCommon`（20 项快选）与 `M.inclZh`（98 项全量）分开——扩充 `inclZh` 时不能直接把它当常用区，否则角色页一次铺 98 个 chip。
 - 单测 76 项；自检归档 `.selfcheck/r15-perf-i18n-fab.txt`。
+## R15b/R15c 记录（同版本 0.7.2 的自我扫描）
+
+- **常驻 `touchmove{passive:false}` 是隐藏的性能杀手**：挂在 `document` 上会让浏览器无法把整页滚动交给合成线程，整个游戏页面触摸滚动都会变卡。凡拖动类交互一律「按下才注册、松手即移除」。
+- **测试桩时序**：02-shell 的 `ready(init)` 在 `loadAll` 时同步执行，所以「视口尺寸 / localStorage 预置」必须在 `loadAll` 之前设好；`S.init()` 之后再设是无效的（`state.inited` 已 true）。
+- **`details.open` 用布尔**，不要赋 `"open"` 字符串。
+- **批量 UI 刷新要缓存键**：`_mbceInc` / `_mbceName` / `_mbceCats` / `_mbceCat` / `_mbceRel` / `_mbceKey` 都是「渲染时缓存，交互时读缓存」，并把 `style.display`、`className` 改成「变化才写」。点一个倾向 chip 原本要写 118 次 className。
+- **状态行要用 locLabel**：地点跳转后不能写裸专名，否则「中文名（专名）」退化；同时用节点引用更新，不要 `getElementsByTagName`。
+- **标题栏拖拽要排除按钮**：从 A-/A+/W-/W+ 起手时直接 return，否则调字号会顺带把面板拖走。
+- **PowerShell 字符串替换不可靠**：单引号内 `` `n `` 不展开、CRLF/LF 不匹配会静默 miss。改源码一律用 Edit 工具，别再走 `.Replace`。
