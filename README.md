@@ -3,12 +3,12 @@
 > 将 DoL 版 MapleBirchCE（v1.9.27）移植到 Course of Temptation（CoT 0.8.2i）。
 > 独立仓库、独立版本线、与 DoL 版解耦。当前状态：**R15 反馈整改完成（切页缓存 / 地点中文 / 倾向 98 键 / 悬浮球可拖），并完成 R15b/R15c 自我扫描 13 项修正（86 项单测），当前版本 0.7.2**。
 
-## 发布（2026-11-05 追加 v0.7.1）
+## 发布（2026-11-05 追加 v0.7.2）
 
 - **GitHub 仓库**（新开，独立于 DoL 版 `TXF182/MapleBirchCE`）：https://github.com/TXF182/MapleBirchCE-CoT
-- **Release v0.7.1**：https://github.com/TXF182/MapleBirchCE-CoT/releases/tag/v0.7.1 （Release id 435262318，tag 指向 `f3a73bc`）
-- **安装包资产**：`MapleBirchCE-CoT-0.7.1.mod.zip`（30156 B，SHA256 `C9AF5FBCD03D786590AC470DCF66A01AC2633F51FB3F2CAB08A72EECC459F7BE`；GitHub 回读 digest 一致）→ https://github.com/TXF182/MapleBirchCE-CoT/releases/download/v0.7.1/MapleBirchCE-CoT-0.7.1.mod.zip
-- 上一版（历史）：Release v0.6.10 https://github.com/TXF182/MapleBirchCE-CoT/releases/tag/v0.6.10
+- **Release v0.7.2**：https://github.com/TXF182/MapleBirchCE-CoT/releases/tag/v0.7.2 （Release id 435317810）
+- **安装包资产**：`MapleBirchCE-CoT-0.7.2.mod.zip`（36590 B，SHA256 `CE45FC6DFB278862146F790362E58F77DCE637FEBA92F01CF752910979E679C1`；GitHub 回读 digest 一致）→ https://github.com/TXF182/MapleBirchCE-CoT/releases/download/v0.7.2/MapleBirchCE-CoT-0.7.2.mod.zip
+- 上一版（历史）：Release v0.7.1 https://github.com/TXF182/MapleBirchCE-CoT/releases/tag/v0.7.1 （id 435262318，30156 B）；Release v0.6.10 https://github.com/TXF182/MapleBirchCE-CoT/releases/tag/v0.6.10
 - 实机冒烟（D6）：非默认门禁，按需执行——游戏内 Mod 管理器加载 zip → 刷新 → 右下金色悬浮球。
 
 ## 阶段进度（移植方案 7 阶段）

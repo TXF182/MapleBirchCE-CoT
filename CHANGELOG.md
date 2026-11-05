@@ -65,6 +65,8 @@ R15 用户反馈四条（切页卡顿 / 地点未翻译 / 倾向不全 / 悬浮�
 
 单测 **86 项**；产物 SHA256 `36D1F75E07F3A0C40AD9972754B4F686BE9B66624F0D67DF7A5D7D4283ACDE14`。
 
+**发布记录（2026-11-05）**：Release v0.7.2 https://github.com/TXF182/MapleBirchCE-CoT/releases/tag/v0.7.2 （id 435317810，draft=false，assets=1）；资产 `MapleBirchCE-CoT-0.7.2.mod.zip` 36590 B，`state=uploaded`，GitHub digest `sha256:ce45fc6dfb278862146f790362e58f77dce637feba92f01cf752910979e679c1`（与本地一致）；下载链接实测 302 → 200、`Content-Length: 36590`。
+
 ## [0.7.1] - 2026-11-05
 
 R14 自我扫描整改（无审批连续自查，按「直到自己找不出问题」执行）：
